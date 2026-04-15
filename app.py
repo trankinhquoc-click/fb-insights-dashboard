@@ -21,7 +21,10 @@ FB_COLS_TO_HIDE = [
 ]
 
 IG_COLS_TO_HIDE = [
-    "ID",
+    "ID bài viết",
+    "ID tài khoản",
+    "Tên tài khoản",
+    "Bình luận về dữ liệu",
     # Thêm các cột Instagram muốn ẩn vào đây...
 ]
 
@@ -38,12 +41,21 @@ FB_COLUMN_ORDER = [
     "Tổng lượt click",
     "Lượt click khác",
     "Số Giây xem",
-    "Số Giây xem trung bình"
+    "Số Giây xem trung bình",
 ]
 
 IG_COLUMN_ORDER = [
     "Thời gian đăng",
     "Nội dung hiển thị",
+    "Lượt thích",
+    "Lượt xem",
+    "Số người tiếp cận",
+    "Lượt chia sẻ",
+    "Lượt theo dõi",
+    "Bình luận",
+    "Lượt lưu",
+    "Thời lượng (giây)",
+    "Loại bài viết",
     # Thêm thứ tự cột Instagram vào đây nếu muốn...
 ]
 # ==========================================
