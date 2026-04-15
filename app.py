@@ -4,8 +4,8 @@ import plotly.express as px
 import os
 import io
 
-st.set_page_config(page_title="Click Studio - Dashboard v2.9.1", page_icon="🚀", layout="wide")
-st.title("🚀 Dashboard Facebook & Instagram (Bản 2.9.1 - Cloud Optimized)")
+st.set_page_config(page_title="Click Studio - Dashboard v3.5", page_icon="🚀", layout="wide")
+st.title("🚀 Dashboard Phân Tích: Facebook & Instagram")
 
 # --- HÀM ĐỌC FILE SIÊU CỨNG CÁP ---
 @st.cache_data
@@ -14,13 +14,11 @@ def load_csv_smart(file_path):
         try:
             with open(file_path, 'rb') as f:
                 content = f.read()
-            # Xử lý mã hóa
             try:
                 text = content.decode(enc)
             except:
                 continue
-                
-            # Xử lý dòng rác sep=,
+            
             lines = text.splitlines()
             if len(lines) > 0 and 'sep=' in lines[0].lower():
                 lines = lines[2:]
@@ -34,59 +32,57 @@ def load_csv_smart(file_path):
             continue
     return None
 
-# --- CHẨN ĐOÁN FILE TRÊN CLOUD ---
-with st.sidebar:
-    st.header("📂 Hệ thống file trên Cloud")
-    all_csv_files = [f for f in os.listdir('.') if f.endswith('.csv')]
-    if all_csv_files:
-        st.success(f"Tìm thấy {len(all_csv_files)} file CSV")
-        for f in all_csv_files:
-            st.caption(f"✅ {f}")
-    else:
-        st.error("❌ Không tìm thấy file .csv nào trên GitHub!")
-    st.markdown("---")
+# --- HÀM TÌM TÊN BÀI VIẾT THÔNG MINH ---
+def get_post_name(row):
+    for col in ["Tiêu đề", "Mô tả", "Nội dung", "Liên kết vĩnh viễn"]:
+        if col in row.index and pd.notna(row[col]) and str(row[col]).strip() != "":
+            return str(row[col])
+    return "Nội dung không có tiêu đề"
 
-# --- PHÂN LOẠI DỮ LIỆU ---
+# --- CHUẨN HÓA SỐ LIỆU ---
+def clean_numeric_df(df):
+    exclude = ['ID', 'Ngày', 'Thời gian đăng', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Nội dung hiển thị', 'Tên Trang', 'Tên người dùng tài khoản']
+    for col in df.columns:
+        if not any(ex in col for ex in exclude) and df[col].dtype == 'object':
+            try:
+                df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='ignore')
+            except: pass
+    return df
+
+# --- PHÂN LOẠI FILE ĐÍCH DANH ---
+all_files = [f for f in os.listdir('.') if f.endswith('.csv')]
 page_dfs = []
-post_dfs = []
+fb_df = None
+ig_df = None
 
-for f_name in all_csv_files:
-    df_temp = load_csv_smart(f_name)
-    if df_temp is not None and not df_temp.empty:
-        # Tìm cột ngày linh hoạt hơn
-        date_col = next((c for c in df_temp.columns if 'ngày' in c.lower() or 'date' in c.lower()), None)
-        
-        # Nhận diện file Bài viết
-        is_post = any(c in df_temp.columns for c in ["Thời gian đăng", "Liên kết vĩnh viễn", "ID bài viết", "ID tài sản video"])
-        
-        if is_post:
-            # Xử lý tên kênh và nội dung
-            name_cols = ["Tên Trang", "Tên người dùng tài khoản", "Tên tài khoản"]
-            channel = next((str(df_temp[c].iloc[0]) for c in name_cols if c in df_temp.columns and pd.notna(df_temp[c].iloc[0])), f_name.replace(".csv", ""))
-            df_temp['Kênh'] = channel
-            
-            content_cols = ["Tiêu đề", "Mô tả", "Nội dung", "Liên kết vĩnh viễn"]
-            def get_content(row):
-                for c in content_cols:
-                    if c in row and pd.notna(row[c]): return str(row[c])
-                return "Nội dung trống"
-            df_temp['Nội dung hiển thị'] = df_temp.apply(get_content, axis=1)
-            post_dfs.append(df_temp)
-        
-        elif date_col:
-            # Xử lý file Tổng quan
-            df_temp = df_temp.rename(columns={date_col: 'Ngày'})
-            if "Primary" in df_temp.columns:
-                metric = f_name.replace(".csv", "").strip()
-                df_temp = df_temp[['Ngày', 'Primary']].rename(columns={"Primary": metric})
-            else:
-                numeric_cols = [c for c in df_temp.select_dtypes(include=['number']).columns if 'ID' not in c]
-                df_temp = df_temp[['Ngày'] + numeric_cols]
-            page_dfs.append(df_temp)
+for f_name in all_files:
+    f_lower = f_name.lower()
+    
+    if f_lower == "facebook.csv":
+        fb_df = load_csv_smart(f_name)
+    elif f_lower == "insta.csv":
+        ig_df = load_csv_smart(f_name)
+    else:
+        # Gom các file còn lại vào Tổng quan (nếu có cột Ngày)
+        df_temp = load_csv_smart(f_name)
+        if df_temp is not None:
+            date_col = next((c for c in df_temp.columns if 'ngày' in c.lower() or 'date' in c.lower()), None)
+            if date_col:
+                df_temp = df_temp.rename(columns={date_col: 'Ngày'})
+                if "Primary" in df_temp.columns:
+                    metric = f_name.replace(".csv", "").strip()
+                    df_temp = df_temp[['Ngày', 'Primary']].rename(columns={"Primary": metric})
+                else:
+                    num_cols = [c for c in df_temp.select_dtypes(include=['number']).columns if 'ID' not in c]
+                    df_temp = df_temp[['Ngày'] + num_cols]
+                page_dfs.append(df_temp)
 
-# --- GIAO DIỆN TABS ---
-tab1, tab2 = st.tabs(["📊 Tổng quan Trang", "📝 Hiệu quả Bài viết"])
+# --- GIAO DIỆN 3 TABS RIÊNG BIỆT ---
+tab1, tab2, tab3 = st.tabs(["📊 Tổng quan Trang", "📘 Hiệu quả Facebook", "📸 Hiệu quả Instagram"])
 
+# ==========================================
+# TAB 1: TỔNG QUAN TRANG
+# ==========================================
 with tab1:
     if page_dfs:
         merged = page_dfs[0]
@@ -105,25 +101,60 @@ with tab1:
                 st.plotly_chart(fig, use_container_width=True)
             st.dataframe(merged)
     else:
-        st.warning("Chưa tìm thấy dữ liệu Tổng quan Trang. Hãy kiểm tra danh sách file ở thanh bên trái.")
+        st.warning("Chưa tìm thấy dữ liệu Tổng quan (Lượt xem, Tương tác...). Hãy đảm bảo các file này đã có trên GitHub.")
 
+# ==========================================
+# TAB 2: HIỆU QUẢ FACEBOOK (FILE Facebook.csv)
+# ==========================================
 with tab2:
-    if post_dfs:
-        final_post_df = pd.concat(post_dfs, ignore_index=True)
-        final_post_df['Nội dung hiển thị'] = final_post_df['Nội dung hiển thị'].apply(lambda x: str(x)[:60] + "..." if len(str(x)) > 60 else str(x))
+    if fb_df is not None:
+        fb_df = clean_numeric_df(fb_df)
+        fb_df['Nội dung hiển thị'] = fb_df.apply(get_post_name, axis=1)
         
-        # Xử lý số liệu
-        exclude = ['ID', 'Kênh', 'Nội dung hiển thị', 'Thời gian đăng', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả']
-        num_cols = [c for c in final_post_df.columns if final_post_df[c].dtype in ['float64', 'int64'] and not any(ex in c for ex in exclude)]
+        # Lấy cột số liệu
+        exclude_meta = ['ID', 'Nội dung hiển thị', 'Thời gian đăng', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Tên Trang', 'Tên người dùng tài khoản']
+        num_cols = [c for c in fb_df.columns if fb_df[c].dtype in ['float64', 'int64'] and not any(ex in c for ex in exclude_meta)]
         
         if num_cols:
-            sort_m = st.sidebar.selectbox("Xếp hạng theo:", num_cols, key="sort_post")
-            final_post_df = final_post_df.sort_values(sort_m, ascending=False)
+            sort_m = st.sidebar.selectbox("Sắp xếp Facebook theo:", num_cols, key="sort_fb")
+            fb_df = fb_df.sort_values(sort_m, ascending=False)
             
-            st.subheader(f"🏆 Top 10 nội dung có {sort_m} cao nhất")
-            fig_post = px.bar(final_post_df.head(10), x=sort_m, y='Nội dung hiển thị', color='Kênh', orientation='h', text_auto=True)
-            fig_post.update_layout(yaxis={'categoryorder':'total ascending'})
-            st.plotly_chart(fig_post, use_container_width=True)
-            st.dataframe(final_post_df[['Kênh', 'Thời gian đăng', 'Nội dung hiển thị'] + num_cols])
+            st.subheader(f"🏆 Top 10 Facebook theo {sort_m}")
+            # Rút gọn tên bài viết để biểu đồ đẹp hơn
+            display_df = fb_df.head(10).copy()
+            display_df['ShortName'] = display_df['Nội dung hiển thị'].apply(lambda x: str(x)[:50] + "...")
+            
+            fig_fb = px.bar(display_df, x=sort_m, y='ShortName', orientation='h', text_auto=True, color_discrete_sequence=['#1877F2'])
+            fig_fb.update_layout(yaxis={'categoryorder':'total ascending'})
+            st.plotly_chart(fig_fb, use_container_width=True)
+            
+            st.dataframe(fb_df[['Thời gian đăng', 'Nội dung hiển thị'] + num_cols])
     else:
-        st.error("Chưa tìm thấy dữ liệu Bài viết.")
+        st.error("❌ Không tìm thấy file 'Facebook.csv' trên hệ thống GitHub.")
+
+# ==========================================
+# TAB 3: HIỆU QUẢ INSTAGRAM (FILE Insta.csv)
+# ==========================================
+with tab3:
+    if ig_df is not None:
+        ig_df = clean_numeric_df(ig_df)
+        ig_df['Nội dung hiển thị'] = ig_df.apply(get_post_name, axis=1)
+        
+        exclude_meta = ['ID', 'Nội dung hiển thị', 'Thời gian đăng', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Tên Trang', 'Tên người dùng tài khoản']
+        num_cols = [c for c in ig_df.columns if ig_df[c].dtype in ['float64', 'int64'] and not any(ex in c for ex in exclude_meta)]
+        
+        if num_cols:
+            sort_m = st.sidebar.selectbox("Sắp xếp Instagram theo:", num_cols, key="sort_ig")
+            ig_df = ig_df.sort_values(sort_m, ascending=False)
+            
+            st.subheader(f"🏆 Top 10 Instagram theo {sort_m}")
+            display_df = ig_df.head(10).copy()
+            display_df['ShortName'] = display_df['Nội dung hiển thị'].apply(lambda x: str(x)[:50] + "...")
+            
+            fig_ig = px.bar(display_df, x=sort_m, y='ShortName', orientation='h', text_auto=True, color_discrete_sequence=['#E1306C'])
+            fig_ig.update_layout(yaxis={'categoryorder':'total ascending'})
+            st.plotly_chart(fig_ig, use_container_width=True)
+            
+            st.dataframe(ig_df[['Thời gian đăng', 'Nội dung hiển thị'] + num_cols])
+    else:
+        st.error("❌ Không tìm thấy file 'Insta.csv' trên hệ thống GitHub.")
