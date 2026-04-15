@@ -29,6 +29,7 @@ FB_COLS_TO_HIDE = [
 
 IG_COLS_TO_HIDE = [
     "ID",
+    "Bình luận về dữ liệu",
     # Thêm các cột Instagram muốn ẩn vào đây...
 ]
 
