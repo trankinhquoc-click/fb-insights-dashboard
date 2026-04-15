@@ -4,7 +4,7 @@ import plotly.express as px
 import os
 import io
 
-st.set_page_config(page_title="Click Studio - Dashboard v3.8", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Click Studio - Dashboard v3.9", page_icon="📈", layout="wide")
 st.title("📈 Dashboard Phân Tích: Facebook & Instagram")
 
 # --- HÀM ĐỌC FILE CHỐNG VỠ DỮ LIỆU ---
@@ -25,14 +25,12 @@ def load_csv_smart(file_path):
             continue
     return None
 
-# --- HÀM TÌM TÊN BÀI VIẾT ---
 def get_post_name(row):
     for col in ["Tiêu đề", "Mô tả", "Nội dung", "Liên kết vĩnh viễn"]:
         if col in row.index and pd.notna(row[col]) and str(row[col]).strip() != "":
             return str(row[col])
     return "Nội dung không có tiêu đề"
 
-# --- CHUẨN HÓA SỐ LIỆU ---
 def clean_numeric_df(df):
     exclude = ['ID', 'Ngày', 'Thời gian đăng', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Nội dung hiển thị']
     for col in df.columns:
@@ -42,16 +40,16 @@ def clean_numeric_df(df):
             except: pass
     return df
 
-# --- DANH SÁCH 6 FILE TỔNG QUAN CHỈ ĐỊNH ---
-target_page_files = [
-    "Lượt click vào liên kết.csv", 
-    "Lượt theo dõi.csv", 
-    "Lượt truy cập.csv", 
-    "Lượt tương tác.csv", 
-    "Lượt xem.csv", 
-    "Người xem.csv"
-]
-target_page_files_lower = [f.lower() for f in target_page_files]
+# --- BỘ TỪ ĐIỂN MAP TÊN FILE GITHUB VỚI TÊN BIỂU ĐỒ ---
+file_mapping = {
+    "luot_click_vao_lien_ket.csv": "Lượt click vào liên kết",
+    "luot_theo_doi.csv": "Lượt theo dõi",
+    "luot_truy_cap.csv": "Lượt truy cập",
+    "luot_tuong_tac.csv": "Lượt tương tác",
+    "luot_xem.csv": "Lượt xem",
+    "nguoi_xem.csv": "Người xem"
+}
+target_page_files_lower = list(file_mapping.keys())
 
 # --- BẢN TIN CHẨN ĐOÁN (SIDEBAR) ---
 all_files = [f for f in os.listdir('.') if f.endswith('.csv')]
@@ -67,11 +65,11 @@ with st.sidebar:
     else: st.caption("❌ Thiếu: Insta.csv")
     
     st.write("📊 **6 File Tổng quan:**")
-    for target in target_page_files:
-        if any(f.lower() == target.lower() for f in all_files):
-            st.caption(f"✅ {target}")
+    for file_lower, display_name in file_mapping.items():
+        if any(f.lower() == file_lower for f in all_files):
+            st.caption(f"✅ {display_name}")
         else:
-            st.caption(f"❌ Thiếu: {target}")
+            st.caption(f"❌ Thiếu: {file_lower}")
     st.markdown("---")
 
 # --- PHÂN LOẠI DỮ LIỆU ---
@@ -82,22 +80,20 @@ ig_df = load_csv_smart(ig_file) if ig_file else None
 for f_name in all_files:
     f_lower = f_name.lower()
     
-    # CHỈ ĐỌC NẾU TÊN FILE NẰM TRONG DANH SÁCH 6 FILE TỔNG QUAN
     if f_lower in target_page_files_lower:
         df_temp = load_csv_smart(f_name)
         if df_temp is not None and not df_temp.empty:
             date_col = next((c for c in df_temp.columns if 'ngày' in c.lower() or 'date' in c.lower()), None)
             if date_col:
                 df_temp = df_temp.rename(columns={date_col: 'Ngày'})
-                # Lấy tên cột là tên file (ví dụ: Lượt xem)
-                metric_name = f_name.replace(".csv", "").replace(".CSV", "").strip()
                 
-                # Trích xuất dữ liệu
+                # Dùng bộ từ điển để lấy tên Tiếng Việt chuẩn cho biểu đồ
+                metric_name = file_mapping[f_lower]
+                
                 if "Primary" in df_temp.columns:
                     df_temp = df_temp[['Ngày', 'Primary']].rename(columns={"Primary": metric_name})
                     page_dfs.append(df_temp)
                 else:
-                    # Nếu mất cột Primary, lấy cột số đầu tiên
                     num_cols = [c for c in df_temp.select_dtypes(include=['number']).columns if 'ID' not in c]
                     if num_cols:
                         df_temp = df_temp[['Ngày', num_cols[0]]].rename(columns={num_cols[0]: metric_name})
@@ -106,11 +102,7 @@ for f_name in all_files:
 # --- GIAO DIỆN CHÍNH ---
 tab1, tab2, tab3 = st.tabs(["📊 Tổng quan Trang", "📘 Hiệu quả Facebook", "📸 Hiệu quả Instagram"])
 
-# ==========================================
-# TAB 1: TỔNG QUAN (ĐÃ FIX LỖI KEYERROR)
-# ==========================================
 with tab1:
-    # Lọc lại một lần nữa để chắc chắn 100% các bảng đều có cột 'Ngày'
     valid_dfs = [df for df in page_dfs if 'Ngày' in df.columns]
     
     if valid_dfs:
@@ -134,9 +126,6 @@ with tab1:
     else:
         st.warning("Chưa có dữ liệu Tổng quan. Vui lòng kiểm tra thanh bên trái để xem các file bị thiếu.")
 
-# ==========================================
-# TAB 2: FACEBOOK (GIỮ Y NGUYÊN)
-# ==========================================
 with tab2:
     if fb_df is not None:
         fb_df = clean_numeric_df(fb_df)
@@ -157,9 +146,6 @@ with tab2:
     else:
         st.error("Dữ liệu Facebook bị lỗi định dạng hoặc chưa tải lên.")
 
-# ==========================================
-# TAB 3: INSTAGRAM (GIỮ Y NGUYÊN)
-# ==========================================
 with tab3:
     if ig_df is not None:
         ig_df = clean_numeric_df(ig_df)
