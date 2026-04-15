@@ -178,11 +178,9 @@ with tab2:
         fb_df = clean_numeric_df(fb_df)
         fb_df['Nội dung hiển thị'] = fb_df.apply(get_post_name, axis=1)
         
-        # 1. Lọc bỏ cột ẩn
         cols_to_drop = [c for c in FB_COLS_TO_HIDE if c in fb_df.columns]
         display_fb_df = fb_df.drop(columns=cols_to_drop)
         
-        # 2. Xử lý thứ tự cột hiển thị
         existing_ordered_cols = [c for c in FB_COLUMN_ORDER if c in display_fb_df.columns]
         system_trash = ['ID', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Tên Trang', 'Tên người dùng tài khoản']
         remaining_cols = [c for c in display_fb_df.columns if c not in existing_ordered_cols and c not in system_trash]
@@ -190,7 +188,6 @@ with tab2:
         final_cols = existing_ordered_cols + remaining_cols
         display_fb_df = display_fb_df[final_cols]
         
-        # 3. Lấy danh sách cột số để làm bộ lọc sắp xếp (selectbox)
         num_cols = [c for c in display_fb_df.columns if display_fb_df[c].dtype in ['float64', 'int64']]
         
         if num_cols:
@@ -211,11 +208,9 @@ with tab3:
         ig_df = clean_numeric_df(ig_df)
         ig_df['Nội dung hiển thị'] = ig_df.apply(get_post_name, axis=1)
         
-        # 1. Lọc bỏ cột ẩn
         cols_to_drop = [c for c in IG_COLS_TO_HIDE if c in ig_df.columns]
         display_ig_df = ig_df.drop(columns=cols_to_drop)
         
-        # 2. Xử lý thứ tự cột hiển thị
         existing_ordered_cols = [c for c in IG_COLUMN_ORDER if c in display_ig_df.columns]
         system_trash = ['ID', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Tên Trang', 'Tên người dùng tài khoản']
         remaining_cols = [c for c in display_ig_df.columns if c not in existing_ordered_cols and c not in system_trash]
@@ -223,7 +218,6 @@ with tab3:
         final_cols = existing_ordered_cols + remaining_cols
         display_ig_df = display_ig_df[final_cols]
         
-        # 3. Lấy danh sách cột số để làm bộ lọc sắp xếp (selectbox)
         num_cols = [c for c in display_ig_df.columns if display_ig_df[c].dtype in ['float64', 'int64']]
         
         if num_cols:
