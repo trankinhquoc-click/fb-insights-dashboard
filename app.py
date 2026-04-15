@@ -2,32 +2,29 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import os
-import io
 
-st.set_page_config(page_title="Click Studio - Dashboard v3.6", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Click Studio - Dashboard v3.7", page_icon="📈", layout="wide")
 st.title("📈 Dashboard Phân Tích: Facebook & Instagram")
 
-# --- HÀM ĐỌC FILE SIÊU CẤP (XỬ LÝ MỌI ĐỊNH DẠNG) ---
+# --- HÀM ĐỌC FILE CHỐNG VỠ DỮ LIỆU (ĐÃ SỬA LỖI ENTER XUỐNG DÒNG) ---
 @st.cache_data
 def load_csv_smart(file_path):
     for enc in ['utf-16', 'utf-8-sig', 'utf-8']:
         try:
-            with open(file_path, 'rb') as f:
-                content = f.read()
-            text = content.decode(enc)
+            # Để Pandas tự đọc nguyên khối, bảo toàn cấu trúc bài viết có dấu Enter
+            df = pd.read_csv(file_path, encoding=enc)
             
-            # Xử lý dòng rác sep=, của Facebook
-            lines = text.splitlines()
-            if len(lines) > 0 and 'sep=' in lines[0].lower():
-                lines = lines[2:]
-            text = '\n'.join(lines)
+            # Xử lý an toàn "dòng rác" của Facebook (sep=,)
+            if not df.empty and len(df.columns) == 1 and 'sep=' in str(df.columns[0]).lower():
+                df = pd.read_csv(file_path, encoding=enc, skiprows=2)
+                if len(df.columns) < 2:
+                    df = pd.read_csv(file_path, encoding=enc, skiprows=1)
             
-            df = pd.read_csv(io.StringIO(text))
-            if not df.empty:
-                # Chuẩn hóa tên cột: xóa khoảng trắng
+            if not df.empty and len(df.columns) > 1:
+                # Xóa khoảng trắng thừa ở tên cột
                 df.columns = [str(c).strip() for c in df.columns]
                 return df
-        except:
+        except Exception:
             continue
     return None
 
@@ -38,13 +35,13 @@ def get_post_name(row):
             return str(row[col])
     return "Nội dung không có tiêu đề"
 
-# --- CHUẨN HÓA SỐ LIỆU (XỬ LÝ DẤU PHẨY NGÀN) ---
+# --- CHUẨN HÓA SỐ LIỆU ---
 def clean_numeric_df(df):
     exclude = ['ID', 'Ngày', 'Thời gian đăng', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Nội dung hiển thị']
     for col in df.columns:
         if not any(ex in col for ex in exclude) and df[col].dtype == 'object':
             try:
-                # Xóa dấu phẩy nếu Facebook xuất số kiểu 1,234
+                # Xóa dấu phẩy định dạng số của FB (VD: 1,234 -> 1234)
                 df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='ignore')
             except: pass
     return df
@@ -72,7 +69,6 @@ fb_df = load_csv_smart(fb_file) if fb_file else None
 ig_df = load_csv_smart(ig_file) if ig_file else None
 
 for f_name in all_files:
-    # Gom các file còn lại (không phải FB/IG post) vào Tab Tổng quan
     if f_name != fb_file and f_name != ig_file:
         df_temp = load_csv_smart(f_name)
         if df_temp is not None:
@@ -131,8 +127,10 @@ with tab2:
             fig_fb.update_layout(yaxis={'categoryorder':'total ascending', 'title': ''})
             st.plotly_chart(fig_fb, use_container_width=True)
             st.dataframe(fb_df[['Thời gian đăng', 'Nội dung hiển thị'] + num_cols])
+        else:
+            st.warning("Không tìm thấy các cột số liệu tương tác trong file Facebook.csv")
     else:
-        st.error("Không tìm thấy file dữ liệu Facebook. Hãy kiểm tra Sidebar.")
+        st.error("Dữ liệu Facebook bị lỗi định dạng. Vui lòng kiểm tra lại file gốc.")
 
 # ==========================================
 # TAB 3: INSTAGRAM
@@ -152,5 +150,7 @@ with tab3:
             fig_ig.update_layout(yaxis={'categoryorder':'total ascending', 'title': ''})
             st.plotly_chart(fig_ig, use_container_width=True)
             st.dataframe(ig_df[['Thời gian đăng', 'Nội dung hiển thị'] + num_cols])
+        else:
+            st.warning("Không tìm thấy các cột số liệu tương tác trong file Insta.csv")
     else:
-        st.error("Không tìm thấy file dữ liệu Instagram. Hãy kiểm tra Sidebar.")
+        st.error("Dữ liệu Instagram bị lỗi định dạng. Vui lòng kiểm tra lại file gốc.")
