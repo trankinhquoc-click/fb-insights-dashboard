@@ -4,35 +4,48 @@ import plotly.express as px
 import os
 import io
 
-st.set_page_config(page_title="Click Studio - Dashboard v4.1", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Click Studio - Dashboard v4.2", page_icon="📈", layout="wide")
 st.title("📈 Dashboard Phân Tích: Facebook & Instagram")
 
 # ==========================================
 # ⚙️ KHU VỰC CẤU HÌNH (TÙY CHỈNH TẠI ĐÂY)
 # ==========================================
-# Bạn hãy copy chính xác tên cột muốn ẨN và dán vào giữa hai dấu ngoặc kép, cách nhau bởi dấu phẩy.
-# Ví dụ: ["Cảm xúc", "Lượt lưu", "Ngôn ngữ"]
 
+# 1. DANH SÁCH ẨN CỘT
 FB_COLS_TO_HIDE = [
-    "Thời lượng (giây)",
+    "Thời lượng (giây)_x", 
+    "Thời lượng (giây)_y",
     "Nhãn tùy chỉnh",
-    "Trạng thái nội dung được tài trợ",
-    "Ngôn ngữ", 
-    "Thu nhập ước tính ((USD))",
-    "CPM quảng cáo ((USD))",
-    "Lượt hiển thị quảng cáo",
-    "Lượt click vào liên kết",
-    "Tổng số lượt click của người dùng khớp với đối tượng nhắm mục tiêu (Photo Click)",
-    "Bình luận về dữ liệu",
+    "Trạng thái nội dung",
     # Thêm các cột Facebook muốn ẩn vào đây...
 ]
 
 IG_COLS_TO_HIDE = [
     "ID",
-    "Bình luận về dữ liệu",
     # Thêm các cột Instagram muốn ẩn vào đây...
 ]
 
+# 2. DANH SÁCH THỨ TỰ CỘT HIỂN THỊ
+FB_COLUMN_ORDER = [
+    "Thời gian đăng",
+    "Nội dung hiển thị",
+    "Số người tiếp cận",
+    "Lượt xem",
+    "Cảm xúc, bình luận và lượt chia sẻ",
+    "Cảm xúc",
+    "Bình luận",
+    "Lượt chia sẻ",
+    "Tổng lượt click",
+    "Lượt click khác",
+    "Số Giây xem",
+    "Số Giây xem trung bình"
+]
+
+IG_COLUMN_ORDER = [
+    "Thời gian đăng",
+    "Nội dung hiển thị",
+    # Thêm thứ tự cột Instagram vào đây nếu muốn...
+]
 # ==========================================
 
 # --- HÀM ĐỌC FILE V4.0 (VƯỢT LỖI PARSER ERROR) ---
@@ -153,12 +166,20 @@ with tab2:
         fb_df = clean_numeric_df(fb_df)
         fb_df['Nội dung hiển thị'] = fb_df.apply(get_post_name, axis=1)
         
-        # Lọc bỏ các cột nằm trong danh sách ẨN
+        # 1. Lọc bỏ cột ẩn
         cols_to_drop = [c for c in FB_COLS_TO_HIDE if c in fb_df.columns]
         display_fb_df = fb_df.drop(columns=cols_to_drop)
         
-        # Chỉ lấy những cột số còn lại (không bị ẩn) để làm tùy chọn sắp xếp
-        num_cols = [c for c in display_fb_df.columns if display_fb_df[c].dtype in ['float64', 'int64'] and 'ID' not in c]
+        # 2. Xử lý thứ tự cột hiển thị
+        existing_ordered_cols = [c for c in FB_COLUMN_ORDER if c in display_fb_df.columns]
+        system_trash = ['ID', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Tên Trang', 'Tên người dùng tài khoản']
+        remaining_cols = [c for c in display_fb_df.columns if c not in existing_ordered_cols and c not in system_trash]
+        
+        final_cols = existing_ordered_cols + remaining_cols
+        display_fb_df = display_fb_df[final_cols]
+        
+        # 3. Lấy danh sách cột số để làm bộ lọc sắp xếp (selectbox)
+        num_cols = [c for c in display_fb_df.columns if display_fb_df[c].dtype in ['float64', 'int64']]
         
         if num_cols:
             sort_fb = st.sidebar.selectbox("Sắp xếp Facebook theo:", num_cols, key="sb_fb")
@@ -169,8 +190,7 @@ with tab2:
             fig_fb.update_layout(yaxis={'categoryorder':'total ascending', 'title': ''})
             st.plotly_chart(fig_fb, use_container_width=True)
             
-            # Hiển thị bảng dữ liệu đã được dọn dẹp
-            st.dataframe(display_fb_df[['Thời gian đăng', 'Nội dung hiển thị'] + num_cols])
+            st.dataframe(display_fb_df)
         else: st.warning("Không tìm thấy các cột số liệu tương tác.")
     else: st.error("Chưa tải dữ liệu Facebook lên.")
 
@@ -179,11 +199,20 @@ with tab3:
         ig_df = clean_numeric_df(ig_df)
         ig_df['Nội dung hiển thị'] = ig_df.apply(get_post_name, axis=1)
         
-        # Lọc bỏ các cột nằm trong danh sách ẨN
+        # 1. Lọc bỏ cột ẩn
         cols_to_drop = [c for c in IG_COLS_TO_HIDE if c in ig_df.columns]
         display_ig_df = ig_df.drop(columns=cols_to_drop)
         
-        num_cols = [c for c in display_ig_df.columns if display_ig_df[c].dtype in ['float64', 'int64'] and 'ID' not in c]
+        # 2. Xử lý thứ tự cột hiển thị
+        existing_ordered_cols = [c for c in IG_COLUMN_ORDER if c in display_ig_df.columns]
+        system_trash = ['ID', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Tên Trang', 'Tên người dùng tài khoản']
+        remaining_cols = [c for c in display_ig_df.columns if c not in existing_ordered_cols and c not in system_trash]
+        
+        final_cols = existing_ordered_cols + remaining_cols
+        display_ig_df = display_ig_df[final_cols]
+        
+        # 3. Lấy danh sách cột số để làm bộ lọc sắp xếp (selectbox)
+        num_cols = [c for c in display_ig_df.columns if display_ig_df[c].dtype in ['float64', 'int64']]
         
         if num_cols:
             sort_ig = st.sidebar.selectbox("Sắp xếp Instagram theo:", num_cols, key="sb_ig")
@@ -194,7 +223,6 @@ with tab3:
             fig_ig.update_layout(yaxis={'categoryorder':'total ascending', 'title': ''})
             st.plotly_chart(fig_ig, use_container_width=True)
             
-            # Hiển thị bảng dữ liệu đã được dọn dẹp
-            st.dataframe(display_ig_df[['Thời gian đăng', 'Nội dung hiển thị'] + num_cols])
+            st.dataframe(display_ig_df)
         else: st.warning("Không tìm thấy các cột số liệu tương tác.")
     else: st.error("Chưa tải dữ liệu Instagram lên.")
