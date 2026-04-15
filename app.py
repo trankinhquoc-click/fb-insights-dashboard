@@ -4,21 +4,32 @@ import plotly.express as px
 import os
 import io
 
-st.set_page_config(page_title="Click Studio - Dashboard v3.9", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Click Studio - Dashboard v4.0", page_icon="📈", layout="wide")
 st.title("📈 Dashboard Phân Tích: Facebook & Instagram")
 
-# --- HÀM ĐỌC FILE CHỐNG VỠ DỮ LIỆU ---
+# --- HÀM ĐỌC FILE V4.0 (VƯỢT LỖI PARSER ERROR) ---
 @st.cache_data
 def load_csv_smart(file_path):
     for enc in ['utf-16', 'utf-8-sig', 'utf-8']:
         try:
-            df = pd.read_csv(file_path, encoding=enc)
-            if not df.empty and len(df.columns) == 1 and 'sep=' in str(df.columns[0]).lower():
-                df = pd.read_csv(file_path, encoding=enc, skiprows=2)
-                if len(df.columns) < 2:
-                    df = pd.read_csv(file_path, encoding=enc, skiprows=1)
+            # 1. Cử "trinh sát" đọc 2 dòng đầu tiên bằng Python thuần để né lỗi sập của Pandas
+            with open(file_path, 'r', encoding=enc) as f:
+                line1 = f.readline()
+                line2 = f.readline()
             
-            if not df.empty and len(df.columns) > 1:
+            # 2. Phân tích cấu trúc file để quyết định số dòng cần cắt
+            skip_n = 0
+            if 'sep=' in line1.lower():
+                # Nếu dòng 2 là tên bảng đơn độc (không có dấu phẩy hay khoảng tab) -> Cắt 2 dòng rác
+                if ',' not in line2 and '\t' not in line2:
+                    skip_n = 2
+                else:
+                    skip_n = 1
+            
+            # 3. Ra lệnh cho Pandas đọc chính xác từ phần dữ liệu cốt lõi
+            df = pd.read_csv(file_path, encoding=enc, skiprows=skip_n)
+            
+            if not df.empty:
                 df.columns = [str(c).strip() for c in df.columns]
                 return df
         except Exception:
@@ -87,7 +98,6 @@ for f_name in all_files:
             if date_col:
                 df_temp = df_temp.rename(columns={date_col: 'Ngày'})
                 
-                # Dùng bộ từ điển để lấy tên Tiếng Việt chuẩn cho biểu đồ
                 metric_name = file_mapping[f_lower]
                 
                 if "Primary" in df_temp.columns:
