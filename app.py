@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import os
 
-st.set_page_config(page_title="Click Studio - Dashboard v5.0", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Click Studio - Dashboard v5.1", page_icon="📈", layout="wide")
 st.title("📈 Dashboard Phân Tích: Facebook & Instagram")
 
 # ==========================================
@@ -85,12 +85,14 @@ for f_name in all_files:
                     if num_cols: page_dfs.append(df_temp[['Ngày', num_cols[0]]].rename(columns={num_cols[0]: metric_name}))
 
 merged_overview = None
+metrics_overview = []
 valid_dfs = [df for df in page_dfs if 'Ngày' in df.columns]
 if valid_dfs:
     merged_overview = valid_dfs[0]
     for next_df in valid_dfs[1:]: merged_overview = pd.merge(merged_overview, next_df, on="Ngày", how="outer")
     merged_overview['Ngày'] = pd.to_datetime(merged_overview['Ngày'], errors='coerce').dt.date
     merged_overview = merged_overview.dropna(subset=['Ngày']).sort_values('Ngày', ascending=False)
+    metrics_overview = [c for c in merged_overview.columns if c != 'Ngày']
 
 display_fb_df = None
 if fb_file:
@@ -114,7 +116,7 @@ if ig_file:
         rem_ig = [c for c in display_ig_df.columns if c not in existing_ig and c not in ['ID', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Tên Trang', 'Tên người dùng tài khoản']]
         display_ig_df = display_ig_df[existing_ig + rem_ig]
 
-# --- 2. TẠO MENU BÊN TRÁI ---
+# --- 2. TẠO MENU BÊN TRÁI & XÂY DỰNG BIỂU ĐỒ ---
 sort_fb = None
 sort_ig = None
 
@@ -126,7 +128,10 @@ with st.sidebar:
         
     st.markdown("---")
     st.header("⚙️ Xếp hạng báo cáo")
-    st.caption("Tiêu chí bạn chọn ở đây sẽ áp dụng thẳng vào bản in PDF.")
+    st.caption("Chọn chỉ số để biểu đồ vẽ theo:")
+    
+    # Overview Multiselect
+    selected_overview = st.multiselect("Chỉ số Tổng quan:", metrics_overview, default=metrics_overview[:2] if len(metrics_overview)>1 else metrics_overview) if metrics_overview else []
     
     if display_fb_df is not None:
         num_cols_fb = [c for c in display_fb_df.columns if display_fb_df[c].dtype in ['float64', 'int64']]
@@ -140,53 +145,98 @@ with st.sidebar:
             sort_ig = st.selectbox("Instagram theo:", num_cols_ig, key="sb_ig")
             display_ig_df = display_ig_df.sort_values(sort_ig, ascending=False)
 
+# TẠO CÁC FIGURE ĐỂ NHÚNG VÀO BÁO CÁO VÀ HIỂN THỊ WEB
+fig_overview = px.line(merged_overview.sort_values('Ngày'), x='Ngày', y=selected_overview, markers=True) if merged_overview is not None and selected_overview else None
+fig_fb = px.bar(display_fb_df.head(10), x=sort_fb, y=display_fb_df.head(10)['Nội dung hiển thị'].apply(lambda x: str(x)[:50]+"..."), orientation='h', text_auto=True, color_discrete_sequence=['#1877F2']).update_layout(yaxis={'categoryorder':'total ascending', 'title': ''}) if display_fb_df is not None and sort_fb else None
+fig_ig = px.bar(display_ig_df.head(10), x=sort_ig, y=display_ig_df.head(10)['Nội dung hiển thị'].apply(lambda x: str(x)[:50]+"..."), orientation='h', text_auto=True, color_discrete_sequence=['#E1306C']).update_layout(yaxis={'categoryorder':'total ascending', 'title': ''}) if display_ig_df is not None and sort_ig else None
+
+with st.sidebar:
     st.markdown("---")
-    st.header("🖨️ Xuất Báo Cáo Hoàn Chỉnh")
+    st.header("📸 Xuất Ảnh Báo Cáo")
     
-    # --- 3. ĐÓNG GÓI DỮ LIỆU THÀNH HTML ĐỂ IN NGUYÊN VẸN ---
+    # --- 3. ĐÓNG GÓI DỮ LIỆU + BIỂU ĐỒ + JS THÀNH HTML ---
     html_content = """
     <!DOCTYPE html>
     <html>
     <head>
     <meta charset="utf-8">
     <title>Báo Cáo Click Studio</title>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 30px; color: #333; }
-        h1 { text-align: center; color: #1877F2; margin-bottom: 30px; font-size: 24px; }
-        h2 { border-bottom: 2px solid #ddd; padding-bottom: 5px; margin-top: 40px; font-size: 18px; color: #555; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
-        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-        th { background-color: #f4f4f4; }
-        @media print {
-            @page { margin: 1cm; size: landscape; }
-            table { page-break-inside: auto; }
-            tr { page-break-inside: avoid; page-break-after: auto; }
-            thead { display: table-header-group; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f0f2f5; }
+        #report-container { background: white; padding: 40px; border-radius: 10px; max-width: 1200px; margin: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #1877F2; margin-bottom: 30px; font-size: 28px; text-transform: uppercase; }
+        h2 { border-bottom: 2px solid #1877F2; padding-bottom: 8px; margin-top: 50px; font-size: 20px; color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; margin-bottom: 20px; font-size: 12px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f8f9fa; color: #333; }
+        
+        /* Nút tải ảnh nổi trên góc */
+        #download-btn {
+            position: fixed; top: 20px; right: 20px; padding: 15px 25px; 
+            background: linear-gradient(135deg, #1877F2, #E1306C); color: white; 
+            border: none; border-radius: 8px; font-size: 16px; font-weight: bold; 
+            cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.2); z-index: 9999;
+            transition: transform 0.2s;
         }
+        #download-btn:hover { transform: scale(1.05); }
     </style>
     </head>
-    <body onload="setTimeout(() => window.print(), 800)">
-        <h1>📊 BÁO CÁO DỮ LIỆU: CLICK STUDIO</h1>
+    <body>
+        <button id="download-btn" onclick="captureJPG()">📸 LƯU BÁO CÁO THÀNH ẢNH JPG</button>
+        
+        <div id="report-container">
+            <h1>📊 BÁO CÁO DỮ LIỆU: CLICK STUDIO</h1>
     """
     
-    if merged_overview is not None and not merged_overview.empty:
+    if merged_overview is not None:
         html_content += "<h2>1. TỔNG QUAN TRANG HÀNG NGÀY</h2>"
+        if fig_overview: html_content += fig_overview.to_html(full_html=False, include_plotlyjs=False)
         html_content += merged_overview.to_html(index=False)
         
-    if display_fb_df is not None and not display_fb_df.empty:
+    if display_fb_df is not None:
         html_content += f"<h2>2. HIỆU QUẢ FACEBOOK (Xếp hạng theo {sort_fb})</h2>"
-        html_content += display_fb_df.to_html(index=False)
+        if fig_fb: html_content += fig_fb.to_html(full_html=False, include_plotlyjs=False)
+        html_content += display_fb_df.head(20).to_html(index=False) # Lấy 20 bài tiêu biểu để ảnh không quá dài
         
-    if display_ig_df is not None and not display_ig_df.empty:
+    if display_ig_df is not None:
         html_content += f"<h2>3. HIỆU QUẢ INSTAGRAM (Xếp hạng theo {sort_ig})</h2>"
-        html_content += display_ig_df.to_html(index=False)
+        if fig_ig: html_content += fig_ig.to_html(full_html=False, include_plotlyjs=False)
+        html_content += display_ig_df.head(20).to_html(index=False)
         
-    html_content += "</body></html>"
+    html_content += """
+        </div>
+        <script>
+            // Hàm dùng Javascript để quét thẻ Div và biến thành ảnh JPG tải về
+            function captureJPG() {
+                var btn = document.getElementById('download-btn');
+                btn.innerHTML = "⏳ Đang xử lý ảnh...";
+                btn.style.opacity = "0.7";
+                
+                html2canvas(document.getElementById('report-container'), {
+                    scale: 2, // Tăng độ nét gấp đôi
+                    useCORS: true,
+                    backgroundColor: "#f0f2f5"
+                }).then(canvas => {
+                    let link = document.createElement('a');
+                    link.download = 'Bao_Cao_Click_Studio.jpg';
+                    link.href = canvas.toDataURL('image/jpeg', 0.9);
+                    link.click();
+                    
+                    btn.innerHTML = "✅ Tải ảnh thành công!";
+                    setTimeout(() => { btn.innerHTML = "📸 LƯU BÁO CÁO THÀNH ẢNH JPG"; btn.style.opacity = "1"; }, 3000);
+                });
+            }
+        </script>
+    </body>
+    </html>
+    """
     
-    st.info("💡 Bấm tải file dưới đây. Sau khi tải xong, hãy **Click mở file đó lên**. Giao diện in sẽ tự động hiện ra với toàn bộ 100% dữ liệu trải dài vô tận!")
+    st.info("💡 Bấm tải file dưới đây. Sau đó **Mở file vừa tải lên** => Bấm nút **Chụp Ảnh JPG** ở góc phải màn hình để có một bức ảnh dài chứa toàn bộ Biểu Đồ + Bảng biểu.")
     
     st.download_button(
-        label="📥 Tải Bản In Hoàn Chỉnh",
+        label="📥 Tải Bản Báo Cáo Kèm Đồ Thị",
         data=html_content,
         file_name="Bao_Cao_Click_Studio.html",
         mime="text/html",
@@ -198,35 +248,23 @@ with st.sidebar:
     if fb_file: st.caption(f"✅ Facebook: {fb_file}")
     if ig_file: st.caption(f"✅ Instagram: {ig_file}")
 
-# --- 4. GIAO DIỆN WEB CHÍNH THỨC ---
+# --- 4. GIAO DIỆN WEB CHÍNH THỨC (CÁC TABS) ---
 tab1, tab2, tab3 = st.tabs(["📊 Tổng quan Trang", "📘 Hiệu quả Facebook", "📸 Hiệu quả Instagram"])
 
 with tab1:
     if merged_overview is not None:
-        metrics = [c for c in merged_overview.columns if c != 'Ngày']
-        if metrics:
-            st.subheader("Biểu đồ xu hướng")
-            selected = st.multiselect("Chọn chỉ số:", metrics, default=metrics[:2] if len(metrics)>1 else metrics)
-            if selected:
-                fig = px.line(merged_overview.sort_values('Ngày'), x='Ngày', y=selected, markers=True)
-                st.plotly_chart(fig, use_container_width=True)
+        if fig_overview: st.plotly_chart(fig_overview, use_container_width=True)
         st.dataframe(merged_overview)
     else: st.warning("Chưa có dữ liệu Tổng quan.")
 
 with tab2:
     if display_fb_df is not None and sort_fb:
-        st.subheader(f"🏆 Top 10 Facebook ({sort_fb})")
-        fig_fb = px.bar(display_fb_df.head(10), x=sort_fb, y=display_fb_df.head(10)['Nội dung hiển thị'].apply(lambda x: str(x)[:50]+"..."), orientation='h', text_auto=True, color_discrete_sequence=['#1877F2'])
-        fig_fb.update_layout(yaxis={'categoryorder':'total ascending', 'title': ''})
-        st.plotly_chart(fig_fb, use_container_width=True)
+        if fig_fb: st.plotly_chart(fig_fb, use_container_width=True)
         st.dataframe(display_fb_df)
     else: st.error("Chưa tải dữ liệu Facebook lên.")
 
 with tab3:
     if display_ig_df is not None and sort_ig:
-        st.subheader(f"🏆 Top 10 Instagram ({sort_ig})")
-        fig_ig = px.bar(display_ig_df.head(10), x=sort_ig, y=display_ig_df.head(10)['Nội dung hiển thị'].apply(lambda x: str(x)[:50]+"..."), orientation='h', text_auto=True, color_discrete_sequence=['#E1306C'])
-        fig_ig.update_layout(yaxis={'categoryorder':'total ascending', 'title': ''})
-        st.plotly_chart(fig_ig, use_container_width=True)
+        if fig_ig: st.plotly_chart(fig_ig, use_container_width=True)
         st.dataframe(display_ig_df)
     else: st.error("Chưa tải dữ liệu Instagram lên.")
