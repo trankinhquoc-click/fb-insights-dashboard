@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import os
 
-st.set_page_config(page_title="Click Studio - Dashboard v5.4", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Click Studio - Dashboard v5.5", page_icon="📈", layout="wide")
 st.title("📈 Dashboard Phân Tích: Facebook & Instagram")
 
 # ==========================================
@@ -122,11 +122,8 @@ if fb_file:
         
         existing_fb = [c for c in FB_COLUMN_ORDER if c in display_fb_df.columns]
         rem_fb = [c for c in display_fb_df.columns if c not in existing_fb and c not in ['ID', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Tên Trang', 'Tên người dùng tài khoản']]
-        
         display_fb_df = display_fb_df[existing_fb + rem_fb]
-        
-        # ✂️ CẮT BẢNG: Chỉ lấy chính xác 15 cột đầu tiên
-        display_fb_df = display_fb_df.iloc[:, :15]
+        display_fb_df = display_fb_df.iloc[:, :15] # Cắt lấy 15 cột đầu
 
 # XỬ LÝ DỮ LIỆU INSTAGRAM
 display_ig_df = None
@@ -172,7 +169,6 @@ with st.sidebar:
 fig_overview = None
 if merged_overview is not None and selected_overview:
     df_chart = merged_overview.sort_values('Ngày', ascending=True)
-    # Ép sử dụng bảng màu Set1 để đảm bảo các đường có màu sắc khác nhau rõ rệt
     fig_overview = px.line(df_chart, x='Ngày', y=selected_overview, markers=True, color_discrete_sequence=px.colors.qualitative.Set1)
     fig_overview.update_xaxes(type='date', title='Thời gian')
 
@@ -181,9 +177,9 @@ fig_ig = px.bar(display_ig_df.head(10), x=sort_ig, y=display_ig_df.head(10)['N�
 
 with st.sidebar:
     st.markdown("---")
-    st.header("📸 Xuất Ảnh Báo Cáo")
+    st.header("🖨️ Xuất Báo Cáo PDF")
     
-    # --- 3. ĐÓNG GÓI DỮ LIỆU + BIỂU ĐỒ THÀNH HTML ---
+    # --- 3. ĐÓNG GÓI DỮ LIỆU + BIỂU ĐỒ THÀNH HTML CHO PDF ---
     html_content = """
     <!DOCTYPE html>
     <html>
@@ -191,7 +187,6 @@ with st.sidebar:
     <meta charset="utf-8">
     <title>Báo Cáo Click Studio</title>
     <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f0f2f5; }
         #report-container { background: white; padding: 40px; border-radius: 10px; max-width: 1200px; margin: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
@@ -203,16 +198,28 @@ with st.sidebar:
         
         #download-btn {
             position: fixed; top: 20px; right: 20px; padding: 15px 25px; 
-            background: linear-gradient(135deg, #1877F2, #E1306C); color: white; 
+            background: linear-gradient(135deg, #FF4B4B, #E1306C); color: white; 
             border: none; border-radius: 8px; font-size: 16px; font-weight: bold; 
             cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.2); z-index: 9999;
             transition: transform 0.2s;
         }
         #download-btn:hover { transform: scale(1.05); }
+
+        /* CẤU HÌNH CSS ĐỂ BẢN IN PDF ĐẸP VÀ KHÔNG BỊ CẮT TRANG */
+        @media print {
+            body { background-color: white; padding: 0; }
+            #report-container { box-shadow: none; max-width: 100%; padding: 0; margin: 0; }
+            #download-btn { display: none !important; } /* Ẩn nút bấm khi in */
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            thead { display: table-header-group; }
+            h2 { page-break-after: avoid; }
+            .plotly-graph-div { page-break-inside: avoid; margin-bottom: 20px; }
+        }
     </style>
     </head>
     <body>
-        <button id="download-btn" onclick="captureJPG()">📸 LƯU BÁO CÁO THÀNH ẢNH JPG</button>
+        <button id="download-btn" onclick="window.print()">📄 LƯU BÁO CÁO THÀNH PDF</button>
         <div id="report-container">
             <h1>📊 BÁO CÁO DỮ LIỆU: CLICK STUDIO</h1>
     """
@@ -237,32 +244,11 @@ with st.sidebar:
         
     html_content += """
         </div>
-        <script>
-            function captureJPG() {
-                var btn = document.getElementById('download-btn');
-                btn.innerHTML = "⏳ Đang xử lý ảnh...";
-                btn.style.opacity = "0.7";
-                
-                html2canvas(document.getElementById('report-container'), {
-                    scale: 2, 
-                    useCORS: true,
-                    backgroundColor: "#f0f2f5"
-                }).then(canvas => {
-                    let link = document.createElement('a');
-                    link.download = 'Bao_Cao_Click_Studio.jpg';
-                    link.href = canvas.toDataURL('image/jpeg', 0.9);
-                    link.click();
-                    
-                    btn.innerHTML = "✅ Tải ảnh thành công!";
-                    setTimeout(() => { btn.innerHTML = "📸 LƯU BÁO CÁO THÀNH ẢNH JPG"; btn.style.opacity = "1"; }, 3000);
-                });
-            }
-        </script>
     </body>
     </html>
     """
     
-    st.info("💡 Bấm tải file dưới đây. Sau đó **Mở file vừa tải lên** => Bấm nút **Chụp Ảnh JPG** ở góc phải.")
+    st.info("💡 Bấm tải file dưới đây. Sau đó **Mở file vừa tải lên bằng trình duyệt web** => Bấm nút **Lưu Báo Cáo Thành PDF** màu đỏ ở góc phải.")
     
     st.download_button(
         label="📥 Tải Bản Báo Cáo Kèm Đồ Thị",
