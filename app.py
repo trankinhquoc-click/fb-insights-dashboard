@@ -2,52 +2,39 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import os
-import io
 
-st.set_page_config(page_title="Click Studio - Dashboard v4.6", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Click Studio - Dashboard v4.7", page_icon="📈", layout="wide")
 st.title("📈 Dashboard Phân Tích: Facebook & Instagram")
 
 # ==========================================
-# 🖨️ CODE ÉP TRÌNH DUYỆT IN TOÀN BỘ TRANG (KHÔNG BỊ CẮT)
+# 🖨️ CODE CSS ÉP TRÌNH DUYỆT IN TOÀN BỘ TRANG
 # ==========================================
 st.markdown("""
 <style>
 @media print {
-    /* 1. Ẩn thanh công cụ bên trái và Header phía trên để bản in rộng rãi */
-    [data-testid="stSidebar"], [data-testid="stHeader"] { 
-        display: none !important; 
-    }
-    /* 2. Ép các khung chứa nội dung mở khóa thanh cuộn, trải dài 100% chiều cao */
-    .stApp, .main, [data-testid="stAppViewContainer"], [data-testid="stAppViewBlockContainer"] {
+    html, body, .stApp, .main, [data-testid="stAppViewContainer"], [data-testid="stAppViewBlockContainer"] {
         height: auto !important;
         overflow: visible !important;
-        position: static !important;
     }
-    /* 3. Chống việc bảng dữ liệu hoặc biểu đồ bị cắt nửa chừng giữa 2 trang giấy */
-    .stPlotlyChart, .stDataFrame {
-        page-break-inside: avoid !important;
+    [data-testid="stSidebar"], [data-testid="stHeader"], [data-testid="stToolbar"] { 
+        display: none !important; 
+    }
+    .stTable {
+        page-break-inside: auto;
+    }
+    tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
     }
 }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# ⚙️ KHU VỰC CẤU HÌNH (TÙY CHỈNH TẠI ĐÂY)
+# ⚙️ KHU VỰC CẤU HÌNH
 # ==========================================
-
-FB_COLS_TO_HIDE = [
-    "Thời lượng (giây)_x", 
-    "Thời lượng (giây)_y",
-    "Nhãn tùy chỉnh",
-    "Trạng thái nội dung"
-]
-
-IG_COLS_TO_HIDE = [
-    "ID bài viết",
-    "ID tài khoản",
-    "Tên tài khoản",
-    "Bình luận về dữ liệu"
-]
+FB_COLS_TO_HIDE = ["Thời lượng (giây)_x", "Thời lượng (giây)_y", "Nhãn tùy chỉnh", "Trạng thái nội dung"]
+IG_COLS_TO_HIDE = ["ID bài viết", "ID tài khoản", "Tên tài khoản", "Bình luận về dữ liệu"]
 
 FB_COLUMN_ORDER = [
     "Thời gian đăng", "Nội dung hiển thị", "Số người tiếp cận", "Lượt xem",
@@ -69,12 +56,10 @@ def load_csv_smart(file_path):
             with open(file_path, 'r', encoding=enc) as f:
                 line1 = f.readline()
                 line2 = f.readline()
-            
             skip_n = 0
             if 'sep=' in line1.lower():
                 if ',' not in line2 and '\t' not in line2: skip_n = 2
                 else: skip_n = 1
-            
             df = pd.read_csv(file_path, encoding=enc, skiprows=skip_n)
             if not df.empty:
                 df.columns = [str(c).strip() for c in df.columns]
@@ -96,7 +81,6 @@ def clean_numeric_df(df):
             except: pass
     return df
 
-# --- BỘ TỪ ĐIỂN MAP TÊN FILE ---
 file_mapping = {
     "luot_click_vao_lien_ket.csv": "Lượt click vào liên kết",
     "luot_theo_doi.csv": "Lượt theo dõi",
@@ -106,16 +90,19 @@ file_mapping = {
     "nguoi_xem.csv": "Người xem"
 }
 
-# --- SIDEBAR: LÀM MỚI & XUẤT BÁO CÁO ---
+# --- SIDEBAR: LÀM MỚI & CHẾ ĐỘ IN ---
 with st.sidebar:
-    st.header("🔄 Điều khiển dữ liệu")
-    if st.button("🚀 Bấm để cập nhật dữ liệu mới nhất"):
+    st.header("🔄 Điều khiển")
+    if st.button("🚀 Bấm để cập nhật dữ liệu"):
         st.cache_data.clear()
         st.rerun()
     
     st.markdown("---")
     st.header("🖨️ Xuất Báo Cáo PDF")
-    st.info("💡 Không cần gập Menu nữa! Chỉ cần nhấn **Cmd + P** (Mac) hoặc **Ctrl + P** (Windows). Chọn máy in là **Save as PDF** và nhớ tích chọn mục hiển thị màu nền (Background graphics). Hệ thống sẽ tự động bắt toàn bộ nội dung từ trên xuống dưới.")
+    st.info("💡 **BƯỚC 1:** Tích vào ô bên dưới để mở khóa toàn bộ bảng dữ liệu. \n\n **BƯỚC 2:** Nhấn phím **Cmd + P** (hoặc Ctrl + P).")
+    
+    # CÔNG TẮC KÍCH HOẠT CHẾ ĐỘ IN (QUAN TRỌNG)
+    print_mode = st.checkbox("✅ Bật Chế độ in PDF (Trải dài bảng)", value=False)
 
     st.markdown("---")
     st.header("🔍 Trạng thái file")
@@ -124,10 +111,7 @@ with st.sidebar:
     ig_file = next((f for f in all_files if 'insta' in f.lower() or 'ig' in f.lower()), None)
     
     if fb_file: st.caption(f"✅ Facebook: {fb_file}")
-    else: st.caption("❌ Thiếu file Facebook.csv")
-        
     if ig_file: st.caption(f"✅ Instagram: {ig_file}")
-    else: st.caption("❌ Thiếu file Insta.csv")
 
 # --- PHÂN LOẠI DỮ LIỆU ---
 page_dfs = []
@@ -166,18 +150,20 @@ with tab1:
             if selected:
                 fig = px.line(merged.sort_values('Ngày'), x='Ngày', y=selected, markers=True)
                 st.plotly_chart(fig, use_container_width=True)
-            st.dataframe(merged)
-        else: st.warning("Không có cột dữ liệu số nào để hiển thị.")
-    else: st.warning("Chưa có dữ liệu Tổng quan. Vui lòng kiểm tra lại file.")
+            
+            # XỬ LÝ IN CHO BẢNG TỔNG QUAN
+            if print_mode:
+                st.table(merged)
+            else:
+                st.dataframe(merged)
+    else: st.warning("Chưa có dữ liệu Tổng quan.")
 
 with tab2:
     if fb_df is not None:
         fb_df = clean_numeric_df(fb_df)
         fb_df['Nội dung hiển thị'] = fb_df.apply(get_post_name, axis=1)
         
-        cols_to_drop = [c for c in FB_COLS_TO_HIDE if c in fb_df.columns]
-        display_fb_df = fb_df.drop(columns=cols_to_drop)
-        
+        display_fb_df = fb_df.drop(columns=[c for c in FB_COLS_TO_HIDE if c in fb_df.columns])
         existing_ordered = [c for c in FB_COLUMN_ORDER if c in display_fb_df.columns]
         system_trash = ['ID', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Tên Trang', 'Tên người dùng tài khoản']
         remaining = [c for c in display_fb_df.columns if c not in existing_ordered and c not in system_trash]
@@ -193,8 +179,12 @@ with tab2:
             fig_fb = px.bar(display_fb_df.head(10), x=sort_fb, y=display_fb_df.head(10)['Nội dung hiển thị'].apply(lambda x: str(x)[:50]+"..."), orientation='h', text_auto=True, color_discrete_sequence=['#1877F2'])
             fig_fb.update_layout(yaxis={'categoryorder':'total ascending', 'title': ''})
             st.plotly_chart(fig_fb, use_container_width=True)
-            st.dataframe(display_fb_df)
-        else: st.warning("Không tìm thấy các cột số liệu tương tác.")
+            
+            # XỬ LÝ IN CHO BẢNG FACEBOOK
+            if print_mode:
+                st.table(display_fb_df)
+            else:
+                st.dataframe(display_fb_df)
     else: st.error("Chưa tải dữ liệu Facebook lên.")
 
 with tab3:
@@ -202,9 +192,7 @@ with tab3:
         ig_df = clean_numeric_df(ig_df)
         ig_df['Nội dung hiển thị'] = ig_df.apply(get_post_name, axis=1)
         
-        cols_to_drop = [c for c in IG_COLS_TO_HIDE if c in ig_df.columns]
-        display_ig_df = ig_df.drop(columns=cols_to_drop)
-        
+        display_ig_df = ig_df.drop(columns=[c for c in IG_COLS_TO_HIDE if c in ig_df.columns])
         existing_ordered = [c for c in IG_COLUMN_ORDER if c in display_ig_df.columns]
         system_trash = ['ID', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Tên Trang', 'Tên người dùng tài khoản']
         remaining = [c for c in display_ig_df.columns if c not in existing_ordered and c not in system_trash]
@@ -220,6 +208,10 @@ with tab3:
             fig_ig = px.bar(display_ig_df.head(10), x=sort_ig, y=display_ig_df.head(10)['Nội dung hiển thị'].apply(lambda x: str(x)[:50]+"..."), orientation='h', text_auto=True, color_discrete_sequence=['#E1306C'])
             fig_ig.update_layout(yaxis={'categoryorder':'total ascending', 'title': ''})
             st.plotly_chart(fig_ig, use_container_width=True)
-            st.dataframe(display_ig_df)
-        else: st.warning("Không tìm thấy các cột số liệu tương tác.")
+            
+            # XỬ LÝ IN CHO BẢNG INSTAGRAM
+            if print_mode:
+                st.table(display_ig_df)
+            else:
+                st.dataframe(display_ig_df)
     else: st.error("Chưa tải dữ liệu Instagram lên.")
