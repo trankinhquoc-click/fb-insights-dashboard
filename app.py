@@ -3,50 +3,32 @@ import pandas as pd
 import plotly.express as px
 import os
 
-st.set_page_config(page_title="Click Studio - Dashboard v4.8", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Click Studio - Dashboard v4.9", page_icon="📈", layout="wide")
 st.title("📈 Dashboard Phân Tích: Facebook & Instagram")
 
 # ==========================================
-# 🖨️ CSS ÉP XUNG HTML & MỞ KHÓA TOÀN DIỆN
+# 🖨️ CSS CHUYÊN DỤNG CHO BẢN IN
 # ==========================================
 st.markdown("""
 <style>
-/* Làm đẹp cho bảng HTML khi bật chế độ in */
 .print-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-    font-family: sans-serif;
-    margin-bottom: 20px;
+    width: 100%; border-collapse: collapse; font-size: 13px; font-family: sans-serif;
 }
 .print-table th, .print-table td {
-    border: 1px solid #ddd;
-    padding: 8px;
-    text-align: left;
+    border: 1px solid #ddd; padding: 6px; text-align: left;
 }
-.print-table th {
-    background-color: #f2f2f2;
-    font-weight: bold;
-}
+.print-table th { background-color: #f2f2f2; }
 
 @media print {
-    /* 1. Phá vỡ MỌI giới hạn chiều cao và thanh cuộn của Streamlit */
+    /* Ép tất cả các thẻ div trải dài ra, không được cuộn */
     html, body, .stApp, .main, div, section {
-        height: auto !important;
-        max-height: none !important;
-        overflow: visible !important;
-        position: static !important;
+        height: auto !important; max-height: none !important; overflow: visible !important;
     }
-    
-    /* 2. Giấu nhẹm thanh Sidebar, Header và các nút bấm rườm rà */
-    header, [data-testid="stSidebar"], .stCheckbox, [data-testid="stToolbar"] { 
-        display: none !important; 
-    }
-    
-    /* 3. Chống cắt chữ giữa 2 trang giấy */
+    /* Giấu menu và thanh công cụ */
+    [data-testid="stSidebar"], header, [data-testid="stToolbar"] { display: none !important; }
+    /* Giữ bảng không bị cắt ngang dòng */
     table { page-break-inside: auto; }
     tr { page-break-inside: avoid; page-break-after: auto; }
-    thead { display: table-header-group; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -68,7 +50,6 @@ IG_COLUMN_ORDER = [
     "Số người tiếp cận", "Lượt chia sẻ", "Lượt theo dõi", "Bình luận",
     "Lượt lưu", "Thời lượng (giây)", "Loại bài viết"
 ]
-# ==========================================
 
 # --- HÀM ĐỌC FILE ---
 @st.cache_data
@@ -104,12 +85,9 @@ def clean_numeric_df(df):
     return df
 
 file_mapping = {
-    "luot_click_vao_lien_ket.csv": "Lượt click vào liên kết",
-    "luot_theo_doi.csv": "Lượt theo dõi",
-    "luot_truy_cap.csv": "Lượt truy cập",
-    "luot_tuong_tac.csv": "Lượt tương tác",
-    "luot_xem.csv": "Lượt xem",
-    "nguoi_xem.csv": "Người xem"
+    "luot_click_vao_lien_ket.csv": "Lượt click vào liên kết", "luot_theo_doi.csv": "Lượt theo dõi",
+    "luot_truy_cap.csv": "Lượt truy cập", "luot_tuong_tac.csv": "Lượt tương tác",
+    "luot_xem.csv": "Lượt xem", "nguoi_xem.csv": "Người xem"
 }
 
 # --- SIDEBAR ---
@@ -121,21 +99,19 @@ with st.sidebar:
     
     st.markdown("---")
     st.header("🖨️ Xuất Báo Cáo PDF")
-    st.info("💡 Bật công tắc này trước khi nhấn Cmd+P / Ctrl+P để mở khóa toàn bộ số liệu ẩn.")
-    
-    # CÔNG TẮC XUẤT HTML
-    print_mode = st.checkbox("✅ Bật Chế độ in PDF (HTML Table)", value=False)
+    # CÔNG TẮC GỘP TAB
+    print_mode = st.checkbox("✅ Bật Chế độ in PDF (Gộp Tab)", value=False)
+    st.info("💡 Bật công tắc này, đợi giao diện chuyển sang dạng cuộn dài rồi nhấn Cmd+P / Ctrl+P.")
 
     st.markdown("---")
     st.header("🔍 Trạng thái file")
     all_files = [f for f in os.listdir('.') if f.endswith('.csv')]
     fb_file = next((f for f in all_files if 'facebook' in f.lower()), None)
     ig_file = next((f for f in all_files if 'insta' in f.lower() or 'ig' in f.lower()), None)
-    
     if fb_file: st.caption(f"✅ Facebook: {fb_file}")
     if ig_file: st.caption(f"✅ Instagram: {ig_file}")
 
-# --- PHÂN LOẠI DỮ LIỆU ---
+# --- TIỀN XỬ LÝ DỮ LIỆU ---
 page_dfs = []
 fb_df = load_csv_smart(fb_file) if fb_file else None
 ig_df = load_csv_smart(ig_file) if ig_file else None
@@ -155,85 +131,97 @@ for f_name in all_files:
                     num_cols = [c for c in df_temp.select_dtypes(include=['number']).columns if 'ID' not in c]
                     if num_cols: page_dfs.append(df_temp[['Ngày', num_cols[0]]].rename(columns={num_cols[0]: metric_name}))
 
-# --- GIAO DIỆN CHÍNH ---
-tab1, tab2, tab3 = st.tabs(["📊 Tổng quan Trang", "📘 Hiệu quả Facebook", "📸 Hiệu quả Instagram"])
+# Xử lý Data Tổng quan
+merged_overview = None
+metrics_overview = []
+valid_dfs = [df for df in page_dfs if 'Ngày' in df.columns]
+if valid_dfs:
+    merged_overview = valid_dfs[0]
+    for next_df in valid_dfs[1:]: merged_overview = pd.merge(merged_overview, next_df, on="Ngày", how="outer")
+    merged_overview['Ngày'] = pd.to_datetime(merged_overview['Ngày'], errors='coerce').dt.date
+    merged_overview = merged_overview.dropna(subset=['Ngày']).sort_values('Ngày', ascending=False)
+    metrics_overview = [c for c in merged_overview.columns if c != 'Ngày']
 
-with tab1:
-    valid_dfs = [df for df in page_dfs if 'Ngày' in df.columns]
-    if valid_dfs:
-        merged = valid_dfs[0]
-        for next_df in valid_dfs[1:]: merged = pd.merge(merged, next_df, on="Ngày", how="outer")
-        merged['Ngày'] = pd.to_datetime(merged['Ngày'], errors='coerce').dt.date
-        merged = merged.dropna(subset=['Ngày']).sort_values('Ngày', ascending=False)
-        metrics = [c for c in merged.columns if c != 'Ngày']
-        if metrics:
-            st.subheader("Biểu đồ xu hướng")
-            selected = st.multiselect("Chọn chỉ số:", metrics, default=metrics[:2] if len(metrics)>1 else metrics)
-            if selected:
-                fig = px.line(merged.sort_values('Ngày'), x='Ngày', y=selected, markers=True)
-                st.plotly_chart(fig, use_container_width=True)
-            
-            # --- RENDER BẢNG THEO CHẾ ĐỘ ---
-            if print_mode:
-                st.markdown(merged.to_html(index=False, classes="print-table"), unsafe_allow_html=True)
-            else:
-                st.dataframe(merged)
+# Xử lý Data FB
+display_fb_df = None
+sort_fb_options = []
+if fb_df is not None:
+    fb_df = clean_numeric_df(fb_df)
+    fb_df['Nội dung hiển thị'] = fb_df.apply(get_post_name, axis=1)
+    display_fb_df = fb_df.drop(columns=[c for c in FB_COLS_TO_HIDE if c in fb_df.columns])
+    existing_fb = [c for c in FB_COLUMN_ORDER if c in display_fb_df.columns]
+    rem_fb = [c for c in display_fb_df.columns if c not in existing_fb and c not in ['ID', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Tên Trang', 'Tên người dùng tài khoản']]
+    display_fb_df = display_fb_df[existing_fb + rem_fb]
+    sort_fb_options = [c for c in display_fb_df.columns if display_fb_df[c].dtype in ['float64', 'int64']]
+
+# Xử lý Data IG
+display_ig_df = None
+sort_ig_options = []
+if ig_df is not None:
+    ig_df = clean_numeric_df(ig_df)
+    ig_df['Nội dung hiển thị'] = ig_df.apply(get_post_name, axis=1)
+    display_ig_df = ig_df.drop(columns=[c for c in IG_COLS_TO_HIDE if c in ig_df.columns])
+    existing_ig = [c for c in IG_COLUMN_ORDER if c in display_ig_df.columns]
+    rem_ig = [c for c in display_ig_df.columns if c not in existing_ig and c not in ['ID', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Tên Trang', 'Tên người dùng tài khoản']]
+    display_ig_df = display_ig_df[existing_ig + rem_ig]
+    sort_ig_options = [c for c in display_ig_df.columns if display_ig_df[c].dtype in ['float64', 'int64']]
+
+# ==========================================
+# HÀM RENDER UI CHUNG
+# ==========================================
+def render_overview_section(is_print):
+    if merged_overview is not None and metrics_overview:
+        selected = st.multiselect("Chọn chỉ số:", metrics_overview, default=metrics_overview[:2] if len(metrics_overview)>1 else metrics_overview)
+        if selected:
+            fig = px.line(merged_overview.sort_values('Ngày'), x='Ngày', y=selected, markers=True)
+            st.plotly_chart(fig, use_container_width=True)
+        if is_print: st.markdown(merged_overview.to_html(index=False, classes="print-table"), unsafe_allow_html=True)
+        else: st.dataframe(merged_overview)
     else: st.warning("Chưa có dữ liệu Tổng quan.")
 
-with tab2:
-    if fb_df is not None:
-        fb_df = clean_numeric_df(fb_df)
-        fb_df['Nội dung hiển thị'] = fb_df.apply(get_post_name, axis=1)
-        
-        display_fb_df = fb_df.drop(columns=[c for c in FB_COLS_TO_HIDE if c in fb_df.columns])
-        existing_ordered = [c for c in FB_COLUMN_ORDER if c in display_fb_df.columns]
-        system_trash = ['ID', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Tên Trang', 'Tên người dùng tài khoản']
-        remaining = [c for c in display_fb_df.columns if c not in existing_ordered and c not in system_trash]
-        
-        display_fb_df = display_fb_df[existing_ordered + remaining]
-        num_cols = [c for c in display_fb_df.columns if display_fb_df[c].dtype in ['float64', 'int64']]
-        
-        if num_cols:
-            sort_fb = st.sidebar.selectbox("Sắp xếp Facebook theo:", num_cols, key="sb_fb")
-            display_fb_df = display_fb_df.sort_values(sort_fb, ascending=False)
-            
-            st.subheader(f"🏆 Top 10 Facebook ({sort_fb})")
-            fig_fb = px.bar(display_fb_df.head(10), x=sort_fb, y=display_fb_df.head(10)['Nội dung hiển thị'].apply(lambda x: str(x)[:50]+"..."), orientation='h', text_auto=True, color_discrete_sequence=['#1877F2'])
-            fig_fb.update_layout(yaxis={'categoryorder':'total ascending', 'title': ''})
-            st.plotly_chart(fig_fb, use_container_width=True)
-            
-            # --- RENDER BẢNG BẰNG RAW HTML KHI IN ---
-            if print_mode:
-                st.markdown(display_fb_df.to_html(index=False, classes="print-table"), unsafe_allow_html=True)
-            else:
-                st.dataframe(display_fb_df)
+def render_fb_section(is_print):
+    if display_fb_df is not None and sort_fb_options:
+        sort_fb = st.selectbox("Sắp xếp Facebook theo:", sort_fb_options, key="sb_fb")
+        df_sorted = display_fb_df.sort_values(sort_fb, ascending=False)
+        st.subheader(f"🏆 Top 10 Facebook ({sort_fb})")
+        fig_fb = px.bar(df_sorted.head(10), x=sort_fb, y=df_sorted.head(10)['Nội dung hiển thị'].apply(lambda x: str(x)[:50]+"..."), orientation='h', text_auto=True, color_discrete_sequence=['#1877F2'])
+        fig_fb.update_layout(yaxis={'categoryorder':'total ascending', 'title': ''})
+        st.plotly_chart(fig_fb, use_container_width=True)
+        if is_print: st.markdown(df_sorted.to_html(index=False, classes="print-table"), unsafe_allow_html=True)
+        else: st.dataframe(df_sorted)
     else: st.error("Chưa tải dữ liệu Facebook lên.")
 
-with tab3:
-    if ig_df is not None:
-        ig_df = clean_numeric_df(ig_df)
-        ig_df['Nội dung hiển thị'] = ig_df.apply(get_post_name, axis=1)
-        
-        display_ig_df = ig_df.drop(columns=[c for c in IG_COLS_TO_HIDE if c in ig_df.columns])
-        existing_ordered = [c for c in IG_COLUMN_ORDER if c in display_ig_df.columns]
-        system_trash = ['ID', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Tên Trang', 'Tên người dùng tài khoản']
-        remaining = [c for c in display_ig_df.columns if c not in existing_ordered and c not in system_trash]
-        
-        display_ig_df = display_ig_df[existing_ordered + remaining]
-        num_cols = [c for c in display_ig_df.columns if display_ig_df[c].dtype in ['float64', 'int64']]
-        
-        if num_cols:
-            sort_ig = st.sidebar.selectbox("Sắp xếp Instagram theo:", num_cols, key="sb_ig")
-            display_ig_df = display_ig_df.sort_values(sort_ig, ascending=False)
-            
-            st.subheader(f"🏆 Top 10 Instagram ({sort_ig})")
-            fig_ig = px.bar(display_ig_df.head(10), x=sort_ig, y=display_ig_df.head(10)['Nội dung hiển thị'].apply(lambda x: str(x)[:50]+"..."), orientation='h', text_auto=True, color_discrete_sequence=['#E1306C'])
-            fig_ig.update_layout(yaxis={'categoryorder':'total ascending', 'title': ''})
-            st.plotly_chart(fig_ig, use_container_width=True)
-            
-            # --- RENDER BẢNG BẰNG RAW HTML KHI IN ---
-            if print_mode:
-                st.markdown(display_ig_df.to_html(index=False, classes="print-table"), unsafe_allow_html=True)
-            else:
-                st.dataframe(display_ig_df)
+def render_ig_section(is_print):
+    if display_ig_df is not None and sort_ig_options:
+        sort_ig = st.selectbox("Sắp xếp Instagram theo:", sort_ig_options, key="sb_ig")
+        df_sorted = display_ig_df.sort_values(sort_ig, ascending=False)
+        st.subheader(f"🏆 Top 10 Instagram ({sort_ig})")
+        fig_ig = px.bar(df_sorted.head(10), x=sort_ig, y=df_sorted.head(10)['Nội dung hiển thị'].apply(lambda x: str(x)[:50]+"..."), orientation='h', text_auto=True, color_discrete_sequence=['#E1306C'])
+        fig_ig.update_layout(yaxis={'categoryorder':'total ascending', 'title': ''})
+        st.plotly_chart(fig_ig, use_container_width=True)
+        if is_print: st.markdown(df_sorted.to_html(index=False, classes="print-table"), unsafe_allow_html=True)
+        else: st.dataframe(df_sorted)
     else: st.error("Chưa tải dữ liệu Instagram lên.")
+
+# ==========================================
+# ĐIỀU HƯỚNG GIAO DIỆN DỰA VÀO CHẾ ĐỘ IN
+# ==========================================
+if print_mode:
+    st.success("🖨️ **Chế độ In đang bật:** Các Tab đã được gỡ bỏ. Dữ liệu đang được trải dài từ trên xuống dưới. Hãy nhấn **Cmd+P** hoặc **Ctrl+P** ngay bây giờ để lưu toàn bộ số liệu.")
+    
+    st.markdown("## 📊 1. Tổng quan Trang")
+    render_overview_section(True)
+    
+    st.markdown("---")
+    st.markdown("## 📘 2. Hiệu quả Facebook")
+    render_fb_section(True)
+    
+    st.markdown("---")
+    st.markdown("## 📸 3. Hiệu quả Instagram")
+    render_ig_section(True)
+    
+else:
+    tab1, tab2, tab3 = st.tabs(["📊 Tổng quan Trang", "📘 Hiệu quả Facebook", "📸 Hiệu quả Instagram"])
+    with tab1: render_overview_section(False)
+    with tab2: render_fb_section(False)
+    with tab3: render_ig_section(False)
