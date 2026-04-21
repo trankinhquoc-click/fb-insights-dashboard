@@ -1,11 +1,10 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import plotly.express as px
 import os
 
-st.set_page_config(page_title="Click Studio - Dashboard v5.6", page_icon="📈", layout="wide")
-
-# Tiêu đề được căn giữa cho chuyên nghiệp
+st.set_page_config(page_title="Click Studio - Dashboard v5.7", page_icon="📈", layout="wide")
 st.markdown("<h1 style='text-align: center;'>📈 Dashboard Phân Tích: Facebook & Instagram</h1>", unsafe_allow_html=True)
 
 # ==========================================
@@ -139,14 +138,12 @@ if ig_file:
         rem_ig = [c for c in display_ig_df.columns if c not in existing_ig and c not in ['ID', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Tên Trang', 'Tên người dùng tài khoản']]
         display_ig_df = display_ig_df[existing_ig + rem_ig]
 
-# --- 2. TÍNH TOÁN THỜI GIAN & IN RA GIAO DIỆN ---
+# --- 2. TÍNH TOÁN THỜI GIAN ---
 date_subtitle = ""
 if merged_overview is not None and not merged_overview.empty:
     min_date = merged_overview['Ngày'].min().strftime('%d/%m/%Y')
     max_date = merged_overview['Ngày'].max().strftime('%d/%m/%Y')
     date_subtitle = f"📅 Thời gian báo cáo: {min_date} ➔ {max_date}"
-    
-    # Hiển thị thời gian ngay dưới tiêu đề chính
     st.markdown(f"<h4 style='text-align: center; color: #555; margin-top: -15px; padding-bottom: 20px;'>{date_subtitle}</h4>", unsafe_allow_html=True)
 
 # --- 3. TẠO MENU BÊN TRÁI & XÂY DỰNG BIỂU ĐỒ ---
@@ -161,7 +158,6 @@ with st.sidebar:
         
     st.markdown("---")
     st.header("⚙️ Xếp hạng báo cáo")
-    st.caption("Chọn chỉ số để biểu đồ vẽ theo:")
     
     selected_overview = st.multiselect("Chỉ số Tổng quan:", metrics_overview, default=metrics_overview[:2] if len(metrics_overview)>1 else metrics_overview) if metrics_overview else []
     
@@ -188,94 +184,88 @@ fig_ig = px.bar(display_ig_df.head(10), x=sort_ig, y=display_ig_df.head(10)['N�
 
 with st.sidebar:
     st.markdown("---")
-    st.header("🖨️ Xuất Báo Cáo PDF")
+    st.header("🖨️ Xuất Báo Cáo Chuyên Nghiệp")
     
-    # --- 4. ĐÓNG GÓI DỮ LIỆU + THỜI GIAN VÀO PDF ---
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-    <meta charset="utf-8">
-    <title>Báo Cáo Click Studio</title>
-    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
-    <style>
-        body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f0f2f5; }}
-        #report-container {{ background: white; padding: 40px; border-radius: 10px; max-width: 1200px; margin: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }}
-        h1 {{ text-align: center; color: #1877F2; margin-bottom: 10px; font-size: 28px; text-transform: uppercase; }}
-        .date-subtitle {{ text-align: center; color: #666; font-size: 16px; margin-top: 0; margin-bottom: 40px; font-weight: bold; }}
-        h2 {{ border-bottom: 2px solid #1877F2; padding-bottom: 8px; margin-top: 50px; font-size: 20px; color: #333; }}
-        table {{ width: 100%; border-collapse: collapse; margin-top: 20px; margin-bottom: 20px; font-size: 12px; }}
-        th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-        th {{ background-color: #f8f9fa; color: #333; }}
+    # NÚT BẤM KÍCH HOẠT QUÁ TRÌNH RENDER PDF TỰ ĐỘNG
+    if st.button("📥 TẢI XUỐNG FILE PDF TRỰC TIẾP", type="primary", use_container_width=True):
+        # 1. Tạo hộp thoại thông báo chờ
+        st.info("⏳ Đang kết xuất PDF, vui lòng chờ khoảng 3 giây. File sẽ tự động tải xuống!")
         
-        #download-btn {{
-            position: fixed; top: 20px; right: 20px; padding: 15px 25px; 
-            background: linear-gradient(135deg, #FF4B4B, #E1306C); color: white; 
-            border: none; border-radius: 8px; font-size: 16px; font-weight: bold; 
-            cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.2); z-index: 9999;
-            transition: transform 0.2s;
-        }}
-        #download-btn:hover {{ transform: scale(1.05); }}
+        # 2. Xây dựng cấu trúc HTML ẩn để thư viện JS chụp ảnh
+        pdf_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="utf-8">
+        <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+        <style>
+            body {{ font-family: Arial, sans-serif; background-color: white; margin: 0; padding: 0; }}
+            #msg-box {{ padding: 10px; background: #28a745; color: white; text-align: center; font-weight: bold; font-family: sans-serif; border-radius: 5px; }}
+            #report-container {{ width: 1100px; padding: 20px; }}
+            h1 {{ text-align: center; color: #1877F2; font-size: 26px; text-transform: uppercase; margin-bottom: 5px; }}
+            .date-subtitle {{ text-align: center; color: #666; font-size: 14px; margin-bottom: 30px; font-weight: bold; }}
+            h2 {{ border-bottom: 2px solid #1877F2; padding-bottom: 5px; margin-top: 40px; font-size: 18px; color: #333; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px; font-size: 11px; }}
+            th, td {{ border: 1px solid #ddd; padding: 6px; text-align: left; }}
+            th {{ background-color: #f4f4f4; color: #333; }}
+        </style>
+        </head>
+        <body>
+            <div id="msg-box">Hệ thống đang tải PDF...</div>
+            <div id="report-container">
+                <h1>📊 BÁO CÁO DỮ LIỆU: CLICK STUDIO</h1>
+                <p class="date-subtitle">{date_subtitle}</p>
+        """
+        
+        if merged_overview is not None:
+            pdf_html += "<h2>1. TỔNG QUAN TRANG HÀNG NGÀY</h2>"
+            if fig_overview: pdf_html += fig_overview.to_html(full_html=False, include_plotlyjs=False)
+            df_export = merged_overview.copy()
+            df_export['Ngày'] = df_export['Ngày'].dt.strftime('%d/%m/%Y')
+            pdf_html += df_export.to_html(index=False)
+            
+        if display_fb_df is not None:
+            pdf_html += f"<h2>2. HIỆU QUẢ FACEBOOK (Xếp hạng theo {sort_fb})</h2>"
+            if fig_fb: pdf_html += fig_fb.to_html(full_html=False, include_plotlyjs=False)
+            pdf_html += display_fb_df.head(20).to_html(index=False)
+            
+        if display_ig_df is not None:
+            pdf_html += f"<h2>3. HIỆU QUẢ INSTAGRAM (Xếp hạng theo {sort_ig})</h2>"
+            if fig_ig: pdf_html += fig_ig.to_html(full_html=False, include_plotlyjs=False)
+            pdf_html += display_ig_df.head(20).to_html(index=False)
+            
+        pdf_html += """
+            </div>
+            <script>
+                // Đợi 2.5 giây cho Plotly vẽ xong biểu đồ, sau đó kích hoạt tải PDF
+                setTimeout(() => {
+                    var element = document.getElementById('report-container');
+                    var opt = {
+                        margin:       0.4,
+                        filename:     'Bao_Cao_Click_Studio.pdf',
+                        image:        { type: 'jpeg', quality: 0.98 },
+                        html2canvas:  { scale: 2, useCORS: true, logging: false },
+                        jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
+                    };
+                    html2pdf().set(opt).from(element).save().then(() => {
+                        document.getElementById('msg-box').innerText = "✅ Đã tải xong PDF! Bạn có thể xem trong thư mục Download.";
+                    });
+                }, 2500);
+            </script>
+        </body>
+        </html>
+        """
+        
+        # Render HTML ẩn để chạy JS tải PDF tự động
+        components.html(pdf_html, height=120, scrolling=True)
 
-        @media print {{
-            body {{ background-color: white; padding: 0; }}
-            #report-container {{ box-shadow: none; max-width: 100%; padding: 0; margin: 0; }}
-            #download-btn {{ display: none !important; }} 
-            table {{ page-break-inside: auto; }}
-            tr {{ page-break-inside: avoid; page-break-after: auto; }}
-            thead {{ display: table-header-group; }}
-            h2 {{ page-break-after: avoid; }}
-            .plotly-graph-div {{ page-break-inside: avoid; margin-bottom: 20px; }}
-        }}
-    </style>
-    </head>
-    <body>
-        <button id="download-btn" onclick="window.print()">📄 LƯU BÁO CÁO THÀNH PDF</button>
-        <div id="report-container">
-            <h1>📊 BÁO CÁO DỮ LIỆU: CLICK STUDIO</h1>
-            <p class="date-subtitle">{date_subtitle}</p>
-    """
-    
-    if merged_overview is not None:
-        html_content += "<h2>1. TỔNG QUAN TRANG HÀNG NGÀY</h2>"
-        if fig_overview: html_content += fig_overview.to_html(full_html=False, include_plotlyjs=False)
-        
-        df_export = merged_overview.copy()
-        df_export['Ngày'] = df_export['Ngày'].dt.strftime('%d/%m/%Y')
-        html_content += df_export.to_html(index=False)
-        
-    if display_fb_df is not None:
-        html_content += f"<h2>2. HIỆU QUẢ FACEBOOK (Xếp hạng theo {sort_fb})</h2>"
-        if fig_fb: html_content += fig_fb.to_html(full_html=False, include_plotlyjs=False)
-        html_content += display_fb_df.head(20).to_html(index=False)
-        
-    if display_ig_df is not None:
-        html_content += f"<h2>3. HIỆU QUẢ INSTAGRAM (Xếp hạng theo {sort_ig})</h2>"
-        if fig_ig: html_content += fig_ig.to_html(full_html=False, include_plotlyjs=False)
-        html_content += display_ig_df.head(20).to_html(index=False)
-        
-    html_content += """
-        </div>
-    </body>
-    </html>
-    """
-    
-    st.info("💡 Bấm tải file dưới đây. Mở file HTML vừa tải lên => Bấm nút **Lưu Báo Cáo Thành PDF** màu đỏ ở góc phải.")
-    
-    st.download_button(
-        label="📥 Tải Bản Báo Cáo Kèm Đồ Thị",
-        data=html_content,
-        file_name="Bao_Cao_Click_Studio.html",
-        mime="text/html",
-        use_container_width=True
-    )
-    
     st.markdown("---")
     st.header("🔍 Trạng thái file")
     if fb_file: st.caption(f"✅ Facebook: {fb_file}")
     if ig_file: st.caption(f"✅ Instagram: {ig_file}")
 
-# --- 5. GIAO DIỆN WEB CHÍNH THỨC ---
+# --- 4. GIAO DIỆN WEB CHÍNH THỨC ---
 tab1, tab2, tab3 = st.tabs(["📊 Tổng quan Trang", "📘 Hiệu quả Facebook", "📸 Hiệu quả Instagram"])
 
 with tab1:
