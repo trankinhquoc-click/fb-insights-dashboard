@@ -3,29 +3,50 @@ import pandas as pd
 import plotly.express as px
 import os
 
-st.set_page_config(page_title="Click Studio - Dashboard v4.7", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Click Studio - Dashboard v4.8", page_icon="📈", layout="wide")
 st.title("📈 Dashboard Phân Tích: Facebook & Instagram")
 
 # ==========================================
-# 🖨️ CODE CSS ÉP TRÌNH DUYỆT IN TOÀN BỘ TRANG
+# 🖨️ CSS ÉP XUNG HTML & MỞ KHÓA TOÀN DIỆN
 # ==========================================
 st.markdown("""
 <style>
+/* Làm đẹp cho bảng HTML khi bật chế độ in */
+.print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    font-family: sans-serif;
+    margin-bottom: 20px;
+}
+.print-table th, .print-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+.print-table th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
 @media print {
-    html, body, .stApp, .main, [data-testid="stAppViewContainer"], [data-testid="stAppViewBlockContainer"] {
+    /* 1. Phá vỡ MỌI giới hạn chiều cao và thanh cuộn của Streamlit */
+    html, body, .stApp, .main, div, section {
         height: auto !important;
+        max-height: none !important;
         overflow: visible !important;
+        position: static !important;
     }
-    [data-testid="stSidebar"], [data-testid="stHeader"], [data-testid="stToolbar"] { 
+    
+    /* 2. Giấu nhẹm thanh Sidebar, Header và các nút bấm rườm rà */
+    header, [data-testid="stSidebar"], .stCheckbox, [data-testid="stToolbar"] { 
         display: none !important; 
     }
-    .stTable {
-        page-break-inside: auto;
-    }
-    tr {
-        page-break-inside: avoid;
-        page-break-after: auto;
-    }
+    
+    /* 3. Chống cắt chữ giữa 2 trang giấy */
+    table { page-break-inside: auto; }
+    tr { page-break-inside: avoid; page-break-after: auto; }
+    thead { display: table-header-group; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -50,6 +71,7 @@ IG_COLUMN_ORDER = [
 # ==========================================
 
 # --- HÀM ĐỌC FILE ---
+@st.cache_data
 def load_csv_smart(file_path):
     for enc in ['utf-16', 'utf-8-sig', 'utf-8']:
         try:
@@ -90,7 +112,7 @@ file_mapping = {
     "nguoi_xem.csv": "Người xem"
 }
 
-# --- SIDEBAR: LÀM MỚI & CHẾ ĐỘ IN ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.header("🔄 Điều khiển")
     if st.button("🚀 Bấm để cập nhật dữ liệu"):
@@ -99,10 +121,10 @@ with st.sidebar:
     
     st.markdown("---")
     st.header("🖨️ Xuất Báo Cáo PDF")
-    st.info("💡 **BƯỚC 1:** Tích vào ô bên dưới để mở khóa toàn bộ bảng dữ liệu. \n\n **BƯỚC 2:** Nhấn phím **Cmd + P** (hoặc Ctrl + P).")
+    st.info("💡 Bật công tắc này trước khi nhấn Cmd+P / Ctrl+P để mở khóa toàn bộ số liệu ẩn.")
     
-    # CÔNG TẮC KÍCH HOẠT CHẾ ĐỘ IN (QUAN TRỌNG)
-    print_mode = st.checkbox("✅ Bật Chế độ in PDF (Trải dài bảng)", value=False)
+    # CÔNG TẮC XUẤT HTML
+    print_mode = st.checkbox("✅ Bật Chế độ in PDF (HTML Table)", value=False)
 
     st.markdown("---")
     st.header("🔍 Trạng thái file")
@@ -151,9 +173,9 @@ with tab1:
                 fig = px.line(merged.sort_values('Ngày'), x='Ngày', y=selected, markers=True)
                 st.plotly_chart(fig, use_container_width=True)
             
-            # XỬ LÝ IN CHO BẢNG TỔNG QUAN
+            # --- RENDER BẢNG THEO CHẾ ĐỘ ---
             if print_mode:
-                st.table(merged)
+                st.markdown(merged.to_html(index=False, classes="print-table"), unsafe_allow_html=True)
             else:
                 st.dataframe(merged)
     else: st.warning("Chưa có dữ liệu Tổng quan.")
@@ -180,9 +202,9 @@ with tab2:
             fig_fb.update_layout(yaxis={'categoryorder':'total ascending', 'title': ''})
             st.plotly_chart(fig_fb, use_container_width=True)
             
-            # XỬ LÝ IN CHO BẢNG FACEBOOK
+            # --- RENDER BẢNG BẰNG RAW HTML KHI IN ---
             if print_mode:
-                st.table(display_fb_df)
+                st.markdown(display_fb_df.to_html(index=False, classes="print-table"), unsafe_allow_html=True)
             else:
                 st.dataframe(display_fb_df)
     else: st.error("Chưa tải dữ liệu Facebook lên.")
@@ -209,9 +231,9 @@ with tab3:
             fig_ig.update_layout(yaxis={'categoryorder':'total ascending', 'title': ''})
             st.plotly_chart(fig_ig, use_container_width=True)
             
-            # XỬ LÝ IN CHO BẢNG INSTAGRAM
+            # --- RENDER BẢNG BẰNG RAW HTML KHI IN ---
             if print_mode:
-                st.table(display_ig_df)
+                st.markdown(display_ig_df.to_html(index=False, classes="print-table"), unsafe_allow_html=True)
             else:
                 st.dataframe(display_ig_df)
     else: st.error("Chưa tải dữ liệu Instagram lên.")
