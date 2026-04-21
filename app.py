@@ -4,14 +4,37 @@ import plotly.express as px
 import os
 import io
 
-st.set_page_config(page_title="Click Studio - Dashboard v4.5", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Click Studio - Dashboard v4.6", page_icon="📈", layout="wide")
 st.title("📈 Dashboard Phân Tích: Facebook & Instagram")
+
+# ==========================================
+# 🖨️ CODE ÉP TRÌNH DUYỆT IN TOÀN BỘ TRANG (KHÔNG BỊ CẮT)
+# ==========================================
+st.markdown("""
+<style>
+@media print {
+    /* 1. Ẩn thanh công cụ bên trái và Header phía trên để bản in rộng rãi */
+    [data-testid="stSidebar"], [data-testid="stHeader"] { 
+        display: none !important; 
+    }
+    /* 2. Ép các khung chứa nội dung mở khóa thanh cuộn, trải dài 100% chiều cao */
+    .stApp, .main, [data-testid="stAppViewContainer"], [data-testid="stAppViewBlockContainer"] {
+        height: auto !important;
+        overflow: visible !important;
+        position: static !important;
+    }
+    /* 3. Chống việc bảng dữ liệu hoặc biểu đồ bị cắt nửa chừng giữa 2 trang giấy */
+    .stPlotlyChart, .stDataFrame {
+        page-break-inside: avoid !important;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
 
 # ==========================================
 # ⚙️ KHU VỰC CẤU HÌNH (TÙY CHỈNH TẠI ĐÂY)
 # ==========================================
 
-# 1. DANH SÁCH ẨN CỘT
 FB_COLS_TO_HIDE = [
     "Thời lượng (giây)_x", 
     "Thời lượng (giây)_y",
@@ -26,34 +49,16 @@ IG_COLS_TO_HIDE = [
     "Bình luận về dữ liệu"
 ]
 
-# 2. DANH SÁCH THỨ TỰ CỘT HIỂN THỊ
 FB_COLUMN_ORDER = [
-    "Thời gian đăng",
-    "Nội dung hiển thị",
-    "Số người tiếp cận",
-    "Lượt xem",
-    "Cảm xúc, bình luận và lượt chia sẻ",
-    "Cảm xúc",
-    "Bình luận",
-    "Lượt chia sẻ",
-    "Tổng lượt click",
-    "Lượt click khác",
-    "Số Giây xem",
-    "Số Giây xem trung bình"
+    "Thời gian đăng", "Nội dung hiển thị", "Số người tiếp cận", "Lượt xem",
+    "Cảm xúc, bình luận và lượt chia sẻ", "Cảm xúc", "Bình luận", "Lượt chia sẻ",
+    "Tổng lượt click", "Lượt click khác", "Số Giây xem", "Số Giây xem trung bình"
 ]
 
 IG_COLUMN_ORDER = [
-    "Thời gian đăng",
-    "Nội dung hiển thị",
-    "Lượt thích",
-    "Lượt xem",
-    "Số người tiếp cận",
-    "Lượt chia sẻ",
-    "Lượt theo dõi",
-    "Bình luận",
-    "Lượt lưu",
-    "Thời lượng (giây)",
-    "Loại bài viết"
+    "Thời gian đăng", "Nội dung hiển thị", "Lượt thích", "Lượt xem",
+    "Số người tiếp cận", "Lượt chia sẻ", "Lượt theo dõi", "Bình luận",
+    "Lượt lưu", "Thời lượng (giây)", "Loại bài viết"
 ]
 # ==========================================
 
@@ -109,8 +114,8 @@ with st.sidebar:
         st.rerun()
     
     st.markdown("---")
-    st.header("🖨️ Xuất Báo Cáo")
-    st.info("💡 Để lưu báo cáo thành PDF, hãy gập thanh menu này lại và nhấn phím **Cmd + P** (Mac) hoặc **Ctrl + P** (Windows). Chọn máy in là **Save as PDF** và nhớ tích chọn mục hiển thị màu nền (Background graphics).")
+    st.header("🖨️ Xuất Báo Cáo PDF")
+    st.info("💡 Không cần gập Menu nữa! Chỉ cần nhấn **Cmd + P** (Mac) hoặc **Ctrl + P** (Windows). Chọn máy in là **Save as PDF** và nhớ tích chọn mục hiển thị màu nền (Background graphics). Hệ thống sẽ tự động bắt toàn bộ nội dung từ trên xuống dưới.")
 
     st.markdown("---")
     st.header("🔍 Trạng thái file")
