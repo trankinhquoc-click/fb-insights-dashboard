@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import os
 
-st.set_page_config(page_title="Click Studio - Dashboard v5.2", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Click Studio - Dashboard v5.3", page_icon="📈", layout="wide")
 st.title("📈 Dashboard Phân Tích: Facebook & Instagram")
 
 # ==========================================
@@ -47,7 +47,7 @@ def get_post_name(row):
     for col in ["Tiêu đề", "Mô tả", "Nội dung", "Liên kết vĩnh viễn"]:
         if col in row.index and pd.notna(row[col]) and str(row[col]).strip() != "":
             text = str(row[col]).strip()
-            # Tách dòng và CHỈ LẤY DÒNG ĐẦU TIÊN KHÔNG TRỐNG
+            # Cắt gọn nội dung: Chỉ lấy dòng đầu tiên có chữ
             lines = [line.strip() for line in text.splitlines() if line.strip() != ""]
             if lines:
                 return lines[0]
@@ -88,17 +88,18 @@ for f_name in all_files:
                     num_cols = [c for c in df_temp.select_dtypes(include=['number']).columns if 'ID' not in c]
                     if num_cols: page_dfs.append(df_temp[['Ngày', num_cols[0]]].rename(columns={num_cols[0]: metric_name}))
 
-# XỬ LÝ LỖI ZIGZAG CHO BIỂU ĐỒ TỔNG QUAN
+# XỬ LÝ CHUẨN HÓA TRỤC THỜI GIAN CHO BẢNG TỔNG QUAN
 merged_overview = None
 metrics_overview = []
 valid_dfs = [df for df in page_dfs if 'Ngày' in df.columns]
+
 if valid_dfs:
     valid_dfs_agg = []
     for df in valid_dfs:
-        df['Ngày'] = pd.to_datetime(df['Ngày'], errors='coerce').dt.date
+        # Ép kiểu dữ liệu về Datetime chuẩn của Python để tránh lỗi zigzag
+        df['Ngày'] = pd.to_datetime(df['Ngày'], errors='coerce').dt.normalize()
         df = df.dropna(subset=['Ngày'])
         
-        # Gom nhóm và cộng dồn các ngày trùng lặp để biểu đồ mượt mà
         cols = [c for c in df.columns if c != 'Ngày']
         for c in cols:
             df[c] = pd.to_numeric(df[c].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
@@ -119,7 +120,7 @@ if fb_file:
     fb_df = load_csv_smart(fb_file)
     if fb_df is not None:
         fb_df = clean_numeric_df(fb_df)
-        fb_df['Nội dung hiển thị'] = fb_df.apply(get_post_name, axis=1) # Chỉ lấy dòng đầu
+        fb_df['Nội dung hiển thị'] = fb_df.apply(get_post_name, axis=1)
         display_fb_df = fb_df.drop(columns=[c for c in FB_COLS_TO_HIDE if c in fb_df.columns])
         existing_fb = [c for c in FB_COLUMN_ORDER if c in display_fb_df.columns]
         rem_fb = [c for c in display_fb_df.columns if c not in existing_fb and c not in ['ID', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Tên Trang', 'Tên người dùng tài khoản']]
@@ -131,7 +132,7 @@ if ig_file:
     ig_df = load_csv_smart(ig_file)
     if ig_df is not None:
         ig_df = clean_numeric_df(ig_df)
-        ig_df['Nội dung hiển thị'] = ig_df.apply(get_post_name, axis=1) # Chỉ lấy dòng đầu
+        ig_df['Nội dung hiển thị'] = ig_df.apply(get_post_name, axis=1)
         display_ig_df = ig_df.drop(columns=[c for c in IG_COLS_TO_HIDE if c in ig_df.columns])
         existing_ig = [c for c in IG_COLUMN_ORDER if c in display_ig_df.columns]
         rem_ig = [c for c in display_ig_df.columns if c not in existing_ig and c not in ['ID', 'Ngày', 'Liên kết vĩnh viễn', 'Tiêu đề', 'Mô tả', 'Tên Trang', 'Tên người dùng tài khoản']]
@@ -165,8 +166,14 @@ with st.sidebar:
             sort_ig = st.selectbox("Instagram theo:", num_cols_ig, key="sb_ig")
             display_ig_df = display_ig_df.sort_values(sort_ig, ascending=False)
 
-# TẠO CÁC FIGURE ĐỂ NHÚNG VÀO BÁO CÁO VÀ HIỂN THỊ WEB
-fig_overview = px.line(merged_overview.sort_values('Ngày'), x='Ngày', y=selected_overview, markers=True) if merged_overview is not None and selected_overview else None
+# TẠO CÁC BIỂU ĐỒ (CẤU HÌNH X-AXIS LÀ DATE ĐỂ CHỐNG LỖI ZIGZAG)
+fig_overview = None
+if merged_overview is not None and selected_overview:
+    # Plotly cần dữ liệu được xếp theo thứ tự thời gian tăng dần để vẽ mượt nhất
+    df_chart = merged_overview.sort_values('Ngày', ascending=True)
+    fig_overview = px.line(df_chart, x='Ngày', y=selected_overview, markers=True)
+    fig_overview.update_xaxes(type='date', title='Thời gian')
+
 fig_fb = px.bar(display_fb_df.head(10), x=sort_fb, y=display_fb_df.head(10)['Nội dung hiển thị'].apply(lambda x: str(x)[:50]+"..."), orientation='h', text_auto=True, color_discrete_sequence=['#1877F2']).update_layout(yaxis={'categoryorder':'total ascending', 'title': ''}) if display_fb_df is not None and sort_fb else None
 fig_ig = px.bar(display_ig_df.head(10), x=sort_ig, y=display_ig_df.head(10)['Nội dung hiển thị'].apply(lambda x: str(x)[:50]+"..."), orientation='h', text_auto=True, color_discrete_sequence=['#E1306C']).update_layout(yaxis={'categoryorder':'total ascending', 'title': ''}) if display_ig_df is not None and sort_ig else None
 
@@ -174,14 +181,14 @@ with st.sidebar:
     st.markdown("---")
     st.header("📸 Xuất Ảnh Báo Cáo")
     
-    # --- 3. ĐÓNG GÓI DỮ LIỆU + BIỂU ĐỒ + JS THÀNH HTML ---
+    # --- 3. ĐÓNG GÓI DỮ LIỆU + BIỂU ĐỒ THÀNH HTML ---
     html_content = """
     <!DOCTYPE html>
     <html>
     <head>
     <meta charset="utf-8">
     <title>Báo Cáo Click Studio</title>
-    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f0f2f5; }
@@ -211,7 +218,11 @@ with st.sidebar:
     if merged_overview is not None:
         html_content += "<h2>1. TỔNG QUAN TRANG HÀNG NGÀY</h2>"
         if fig_overview: html_content += fig_overview.to_html(full_html=False, include_plotlyjs=False)
-        html_content += merged_overview.to_html(index=False)
+        
+        # Căn chỉnh lại cột Ngày hiển thị đẹp hơn trong file xuất ra
+        df_export = merged_overview.copy()
+        df_export['Ngày'] = df_export['Ngày'].dt.strftime('%d/%m/%Y')
+        html_content += df_export.to_html(index=False)
         
     if display_fb_df is not None:
         html_content += f"<h2>2. HIỆU QUẢ FACEBOOK (Xếp hạng theo {sort_fb})</h2>"
@@ -270,8 +281,12 @@ tab1, tab2, tab3 = st.tabs(["📊 Tổng quan Trang", "📘 Hiệu quả Faceboo
 
 with tab1:
     if merged_overview is not None:
+        # Căn chỉnh hiển thị ngày trên web
+        st_df = merged_overview.copy()
+        st_df['Ngày'] = st_df['Ngày'].dt.strftime('%d/%m/%Y')
+        
         if fig_overview: st.plotly_chart(fig_overview, use_container_width=True)
-        st.dataframe(merged_overview)
+        st.dataframe(st_df)
     else: st.warning("Chưa có dữ liệu Tổng quan.")
 
 with tab2:
