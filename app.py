@@ -4,7 +4,7 @@ import plotly.express as px
 import os
 import io
 
-st.set_page_config(page_title="Click Studio - Fresh Dashboard v4.3", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Click Studio - Dashboard v4.4", page_icon="📈", layout="wide")
 st.title("📈 Dashboard Phân Tích: Facebook & Instagram")
 
 # ==========================================
@@ -25,7 +25,7 @@ IG_COLUMN_ORDER = [
 ]
 # ==========================================
 
-# --- HÀM ĐỌC FILE (ĐÃ LOẠI BỎ CACHE ĐỂ CẬP NHẬT TỨC THÌ) ---
+# --- HÀM ĐỌC FILE ---
 def load_csv_smart(file_path):
     for enc in ['utf-16', 'utf-8-sig', 'utf-8']:
         try:
@@ -69,13 +69,34 @@ file_mapping = {
     "nguoi_xem.csv": "Người xem"
 }
 
-# --- SIDEBAR & NÚT LÀM MỚI ---
+# --- SIDEBAR: LÀM MỚI & XUẤT BÁO CÁO ---
 with st.sidebar:
     st.header("🔄 Điều khiển dữ liệu")
     if st.button("🚀 Bấm để cập nhật dữ liệu mới nhất"):
         st.cache_data.clear()
         st.rerun()
     
+    st.markdown("---")
+    st.header("🖨️ Xuất Báo Cáo")
+    
+    # Nút bấm HTML/JS để in PDF
+    print_js = """
+    <button onclick="window.print()" style="
+        background-color: #FF4B4B; 
+        color: white; 
+        border: none; 
+        padding: 8px 15px; 
+        border-radius: 5px; 
+        width: 100%; 
+        font-weight: 600; 
+        cursor: pointer;
+        font-size: 16px;">
+        📄 Lưu PDF toàn bộ trang
+    </button>
+    """
+    st.markdown(print_js, unsafe_allow_html=True)
+    st.caption("💡 Mẹo: Khi cửa sổ hiện ra, hãy đổi máy in thành **'Save as PDF'** (Lưu dưới dạng PDF).")
+
     st.markdown("---")
     st.header("🔍 Trạng thái file")
     all_files = [f for f in os.listdir('.') if f.endswith('.csv')]
