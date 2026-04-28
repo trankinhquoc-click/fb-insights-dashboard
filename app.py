@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.express as px
 import os
 
-st.set_page_config(page_title="Click Studio - Dashboard v6.0", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Click Studio - Dashboard v6.1", page_icon="📈", layout="wide")
 st.markdown("<h1 style='text-align: center;'>📈 Dashboard Phân Tích: Facebook & Instagram</h1>", unsafe_allow_html=True)
 
 # ==========================================
@@ -93,17 +93,21 @@ def merge_overview_dfs(dfs):
 
 # --- 1. ĐỌC VÀ LÀM SẠCH DỮ LIỆU ---
 all_files = [f for f in os.listdir('.') if f.endswith('.csv')]
-fb_file = next((f for f in all_files if 'facebook' in f.lower()), None)
-ig_file = next((f for f in all_files if 'insta' in f.lower() or 'ig' in f.lower()), None)
+
+# SỬA LỖI Ở ĐÂY: Khóa mục tiêu để chỉ nhận đúng file Bài viết chính
+fb_file = next((f for f in all_files if f.lower() in ['facebook.csv', 'fb.csv']), None)
+ig_file = next((f for f in all_files if f.lower() in ['insta.csv', 'instagram.csv', 'ig.csv']), None)
 
 fb_page_dfs = []
 ig_page_dfs = []
 
 # Tự động phân loại file Tổng quan
 for f_name in all_files:
+    # Bỏ qua 2 file Bài viết chính để chúng không bị lọt vào khu vực Tổng quan
+    if f_name == fb_file or f_name == ig_file: 
+        continue
+        
     f_lower = f_name.lower()
-    if f_lower in ['facebook.csv', 'insta.csv']: continue
-    
     metric_name = None
     for key, display_name in overview_keywords.items():
         if key in f_lower:
